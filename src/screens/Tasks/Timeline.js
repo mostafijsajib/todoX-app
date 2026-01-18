@@ -1,498 +1,557 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  SafeAreaView,
+  StyleSheet,
   Animated,
-  Easing,
-  Alert,
+  ActivityIndicator,
+  RefreshControl,
+  TouchableOpacity,
+  FlatList,
 } from 'react-native';
-import groupBy from 'lodash/groupBy';
-import {
-  ExpandableCalendar,
-  TimelineList,
-  CalendarProvider,
-  CalendarUtils,
-} from 'react-native-calendars';
-import { colors } from '@/constants/Colors';
-import leftArrowIcon from "@/assets/icons/previous.png";
-import rightArrowIcon from "@/assets/icons/next.png";
-import { Timeline } from "react-native-calendars";
-import { useSelector } from 'react-redux';
-
-// Import Timeline components
-import { 
-  getDate 
-} from '@/components/Timeline/TimelineConstants';
-import TimelineCalendarHeader from '@/components/Timeline/TimelineCalendarHeader';
-import TimelineCalendarDay from '@/components/Timeline/TimelineCalendarDay';
-import TimelineHeader from '@/components/Timeline/TimelineHeader';
-import TimelineMenuDropdown from '@/components/Timeline/TimelineMenuDropdown';
-import { useTimelineEventHandlers } from '@/components/Timeline/TimelineEventHandlers';
-import { 
-  timelineStyles, 
-  getTimelineTheme, 
-  getCalendarTheme 
-} from '@/components/Timeline/TimelineStyles';
-import AddTaskButton from '@/components/AddTaskButton';
-import TaskDetailModal from '@/components/Tasks/TaskDetailModal';
-import { convertTaskListToTimelineList } from '@/utils/gnFunc';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { Calendar } from 'react-native-calendars';
+import { colors, spacing, typography, borderRadius, shadows } from '@/constants/Colors';
 import useTasks from '@/hooks/useTasks';
+import useSubjects from '@/hooks/useSubjects';
+import {
+  TimelineHeader,
+  TimelineMenuDropdown,
+  timelineStyles,
+  getCalendarTheme,
+  getDate,
+  getEventColor,
+  formatTimeDisplay,
+} from '@/components/Timeline';
+import { TaskDetailModal } from '@/components/Tasks';
+import AddTaskButton from '@/components/AddTaskButton';
 
-const TimelineCalendarScreen = () => {
-  // State management with hooks
-  const [currentDate, setCurrentDate] = useState(getDate());
-  const [events, setEvents] = useState([]);
+/**
+ * Timeline Screen
+ * Visual timeline view of study tasks
+ */
+export default function Timeline() {
+  const { task_list, updateTask, completeTask, uncompleteTask, deleteTask, isLoading, loadTasksFromStorage } = useTasks();
+  const { subject_list } = useSubjects();
+
+  // State
+  const [selectedDate, setSelectedDate] = useState(getDate());
   const [showMenu, setShowMenu] = useState(false);
   const [filterBy, setFilterBy] = useState('all');
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
-  const task_list = useSelector((state) => state.task.task_list);
-  const [calendarKey, setCalendarKey] = useState(0);
-  
-  // Task management hooks
-  const { updateTask, deleteTask } = useTasks();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Refs for calendar and animation
-  const calendarRef = useRef(null);
-  const rotation = useRef(new Animated.Value(0));
+  // Animation
+  const headerOpacity = useRef(new Animated.Value(1)).current;
 
-  // Update events from Redux task_list and trigger calendar re-render when necessary
-  useEffect(() => {
-    const convertedEvents = convertTaskListToTimelineList(task_list);
-    setEvents(convertedEvents);
-    // Update calendar key to force re-render when events change
-    if (convertedEvents.length > 0) {
-      setCalendarKey(Date.now());
-    }
-  }, [task_list]);
-
-  // Update calendar key when filter changes to ensure proper re-rendering
-  useEffect(() => {
-    setCalendarKey(Date.now());
-  }, [filterBy]);
-
-  // Memoize filtered events to prevent unnecessary recalculations
-  const filteredEvents = useMemo(() => {
-    let filtered = events || [];
-    
-    if (filterBy !== 'all') {
-      filtered = filtered.filter(event => event.priority === filterBy);
-    }
-    
-    return filtered;
-  }, [events, filterBy]);
-
-  // Memoize grouped events by date with stable reference
-  const filteredEventsByDate = useMemo(
-    () => groupBy(filteredEvents, (e) => CalendarUtils.getCalendarDateString(e.start)),
-    [filteredEvents]
-  );
-
-  // Enhanced markedDates with gradient indicators
+  // Get marked dates for calendar
   const markedDates = useMemo(() => {
-    const marked = {};
-    Object.keys(filteredEventsByDate).forEach((date) => {
-      const dayEvents = filteredEventsByDate[date];
-      marked[date] = {
-        marked: true,
-        dotColor: colors.primary,
-        selectedColor: colors.primary,
-        eventCount: dayEvents.length,
-        // Add priority indicator
-        hasHighPriority: dayEvents.some(event => event.priority === 'high'),
-      };
+    const dates = {};
+    task_list?.forEach((task) => {
+      if (task.date) {
+        const dateStr = task.date.split('T')[0];
+        dates[dateStr] = {
+          marked: true,
+          dotColor: getEventColor(task.priority),
+        };
+      }
     });
-    marked[currentDate] = {
-      ...marked[currentDate],
+
+    // Mark selected date
+    dates[selectedDate] = {
+      ...dates[selectedDate],
       selected: true,
       selectedColor: colors.primary,
     };
-    return marked;
-  }, [filteredEventsByDate, currentDate]);
 
-  // Event handlers from custom hook - pass Redux task_list to avoid undefined errors
-  const {
-    createNewEvent,
-    handleDateChanged: onDateChanged,
-    handleMonthChange,
-    loadTimelineEvents,
-    taskError,
-  } = useTimelineEventHandlers(filteredEventsByDate, setEvents, task_list || []);
+    return dates;
+  }, [task_list, selectedDate]);
 
-  // Load timeline events only when task_list is available and events are empty
-  useEffect(() => {
-    // Only load timeline events if we have task_list and no events from Redux yet
-    if (task_list && Array.isArray(task_list) && events.length === 0) {
-      loadTimelineEvents();
-    }
-  }, [task_list, events.length, loadTimelineEvents]); // Depend on task_list availability
+  // Filter tasks for selected date
+  const filteredTasks = useMemo(() => {
+    if (!task_list) return [];
 
-  // Enhanced createNewEvent with user feedback - memoized to prevent recreation
-  const handleTimelineLongPress = useCallback(async (timeString, timeObject) => {
-    try {
-      await createNewEvent(timeString, timeObject);
-      // Show success feedback could be added here if needed
-    } catch (error) {
-      console.error('Failed to create timeline event:', error);
-      Alert.alert(
-        'Error',
-        'Failed to create timeline event. Please try again.',
-        [{ text: 'OK' }]
-      );
-    }
-  }, [createNewEvent]);
+    return task_list
+      .filter((task) => {
+        // Filter by date
+        if (!task.date) return false;
+        const taskDate = task.date.split('T')[0];
+        if (taskDate !== selectedDate) return false;
 
-  // Show error alert when taskError changes - with ref to prevent unnecessary re-renders
-  const lastErrorRef = useRef(null);
-  useEffect(() => {
-    if (taskError && taskError !== lastErrorRef.current) {
-      lastErrorRef.current = taskError;
-      Alert.alert(
-        'Timeline Error',
-        `An error occurred: ${taskError}`,
-        [{ text: 'OK' }]
-      );
-    }
-  }, [taskError]);
+        // Filter by priority
+        if (filterBy !== 'all' && task.priority !== filterBy) return false;
 
-  /**
-   * Handle task press to open detail modal
-   */
-  const handleTaskPress = (task) => {
-    // Find the original task from task_list using the task id
-    const originalTask = task_list.find(t => t.id === task.id);
-    if (originalTask) {
-      setSelectedTask(originalTask);
-      setShowTaskModal(true);
-    } else {
-      // If not found in task_list, it might be a timeline-created event
-      // Convert timeline event to task format
-      const timelineTask = {
-        id: task.id,
-        title: task.title,
-        summary: task.summary || '',
-        priority: task.priority || 'medium',
-        category: 'Timeline',
-        date: task.start ? task.start.split(' ')[0] : new Date().toISOString().split('T')[0],
-        startTime: task.start ? task.start.split(' ')[1] : null,
-        endTime: task.end ? task.end.split(' ')[1] : null,
-        is_completed: false,
-        subTask: [],
-        reminder: false,
-      };
-      setSelectedTask(timelineTask);
-      setShowTaskModal(true);
-    }
-  };
-
-  /**
-   * Handle closing task detail modal
-   */
-  const handleCloseTaskModal = () => {
-    setShowTaskModal(false);
-    setSelectedTask(null);
-  };
-
-  /**
-   * Handle updating a task from TaskDetailModal
-   */
-  const handleUpdateTask = async (updatedTask) => {
-    try {
-      const success = await updateTask(updatedTask.id, updatedTask);
-      
-      if (success) {
-        // Update selected task if it's the same one being edited
-        if (selectedTask && selectedTask.id === updatedTask.id) {
-          setSelectedTask(updatedTask);
+        return true;
+      })
+      .sort((a, b) => {
+        // Sort by time
+        if (a.startTime && b.startTime) {
+          return a.startTime.localeCompare(b.startTime);
         }
-      } else {
-        Alert.alert('Error', 'Failed to update task. Please try again.');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update task. Please try again.');
-    }
+        if (a.startTime) return -1;
+        if (b.startTime) return 1;
+        return 0;
+      });
+  }, [task_list, selectedDate, filterBy]);
+
+  // Get subject for task
+  const getSubjectForTask = useCallback(
+    (subjectId) => {
+      return subject_list?.find((s) => s.id === subjectId);
+    },
+    [subject_list]
+  );
+
+  // Handlers
+  const handleDateSelect = (day) => {
+    setSelectedDate(day.dateString);
   };
 
-  /**
-   * Handle deleting a task from TaskDetailModal
-   */
-  const handleDeleteTask = async (taskId) => {
-    try {
-      const success = await deleteTask(taskId);
-      
-      if (success) {
-        // Close modal if the deleted task was selected
-        if (selectedTask && selectedTask.id === taskId) {
-          handleCloseTaskModal();
-        }
-      } else {
-        Alert.alert('Error', 'Failed to delete task. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      Alert.alert('Error', 'Failed to delete task. Please try again.');
-    }
+  const handleTodayPress = () => {
+    setSelectedDate(getDate());
   };
 
-  /**
-   * Handle date change in calendar with state update
-   */
-  const handleDateChanged = useCallback((date, source) => {
-    setCurrentDate(date);
-    onDateChanged(date, source);
-  }, [onDateChanged]);
-
-  /**
-   * Handle filter change
-   */
-  const handleFilterChange = (filter) => {
-    setFilterBy(filter);
-    setShowMenu(false);
-  };
-
-  /**
-   * Handle refresh events
-   */
-  const handleRefreshEvents = async () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    setShowMenu(false);
-    try {
-      // Simulate refresh delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // Here you would typically reload events from your data source
-      console.log('Events refreshed');
-    } catch (error) {
-      console.error('Error refreshing events:', error);
-    } finally {
-      setIsRefreshing(false);
+    await loadTasksFromStorage();
+    setIsRefreshing(false);
+  };
+
+  const handleTaskPress = (task) => {
+    setSelectedTask(task);
+    setShowTaskModal(true);
+  };
+
+  const handleToggleComplete = async (task) => {
+    if (task.is_completed) {
+      await uncompleteTask(task.id);
+    } else {
+      await completeTask(task.id);
     }
   };
 
-  /**
-   * Handle closing menu
-   */
-  const handleCloseMenu = () => {
-    setShowMenu(false);
+  const handleUpdateTask = async (updatedTask) => {
+    return await updateTask(updatedTask.id, updatedTask);
   };
 
-  /**
-   * Toggle calendar expansion with animation
-   */
-  const toggleCalendarExpansion = useCallback(() => {
-    const isOpen = calendarRef.current?.toggleCalendarPosition();
-    Animated.timing(rotation.current, {
-      toValue: isOpen ? 1 : 0,
-      duration: 250,
-      useNativeDriver: true,
-      easing: Easing.bezier(0.4, 0.0, 0.2, 1),
-    }).start();
-  }, []);
+  const handleDeleteTask = async (taskId) => {
+    const success = await deleteTask(taskId);
+    if (success) {
+      setShowTaskModal(false);
+      setSelectedTask(null);
+    }
+    return success;
+  };
 
-  /**
-   * Render custom calendar header
-   */
-  const renderHeader = useCallback(
-    (date) => {
-      return (
-        <TimelineCalendarHeader 
-          date={date} 
-          onToggle={toggleCalendarExpansion} 
-        />
-      );
-    },
-    [toggleCalendarExpansion],
-  );
+  // Render task item - Modernized design
+  const renderTaskItem = ({ item }) => {
+    const subject = getSubjectForTask(item.subjectId);
+    const priorityColor = getEventColor(item.priority);
 
-  /**
-   * Render custom calendar day
-   */
-  const renderDay = useCallback(
-    (date, item) => {
-      return <TimelineCalendarDay date={date} item={item} />;
-    },
-    []
-  );
-
-  /**
-   * Handle calendar toggle animation
-   */
-  const onCalendarToggled = useCallback((isOpen) => {
-    rotation.current.setValue(isOpen ? 1 : 0);
-  }, []);
-
-  // Memoized theme configurations
-  const calendarTheme = useMemo(() => getCalendarTheme(colors), []);
-  const timelineTheme = useMemo(() => getTimelineTheme(colors), []);
-
-  // Ultra-premium timeline configuration with luxury design
-  const timelineProps = useMemo(
-    () => ({
-      theme: timelineTheme,
-      format24h: false,
-      onBackgroundLongPress: handleTimelineLongPress,
-      onEventPress: handleTaskPress,
-      unavailableHours: [],
-      overlapEventsSpacing: 28,
-      rightEdgeSpacing: 36,
-      scrollToFirst: true,
-      start: 0,
-      end: 24,
-    }),
-    [handleTimelineLongPress, handleTaskPress, timelineTheme]
-  )
-
-  const renderItem = useCallback((timelineProps, info) => {
-    // Extract key from props to avoid spreading it into JSX
-    const { key, ...restProps } = timelineProps;
-    
     return (
-      <Timeline
-        key={key || `timeline-${info?.date || 'default'}`}
-        {...restProps}
-        renderEvent={(event) => (
-          <View 
-            style={{ 
-              backgroundColor: event.color, 
-              height: "100%", 
-              width: "100%",
-              padding: 8,
-              borderRadius: 4
-            }} 
-            key={event.end}
-          >
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>
-              {event.title}
-            </Text>
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>
-              {event.summary}
-            </Text>
+      <TouchableOpacity
+        style={styles.taskCardContainer}
+        onPress={() => handleTaskPress(item)}
+        activeOpacity={0.8}
+      >
+        <BlurView intensity={10} tint="light" style={styles.taskCard}>
+          <View style={styles.taskCardContent}>
+            <View style={styles.taskHeader}>
+              <TouchableOpacity
+                style={[
+                  styles.checkbox,
+                  item.is_completed && styles.checkboxCompleted,
+                ]}
+                onPress={() => handleToggleComplete(item)}
+                activeOpacity={0.7}
+              >
+                {item.is_completed && (
+                  <Ionicons name="checkmark" size={14} color={colors.white} />
+                )}
+              </TouchableOpacity>
+              <View style={styles.taskInfo}>
+                <Text
+                  style={[
+                    styles.taskTitle,
+                    item.is_completed && styles.taskTitleCompleted,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {item.title}
+                </Text>
+                {item.startTime && (
+                  <View style={styles.taskTimeContainer}>
+                    <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
+                    <Text style={styles.taskTime}>
+                      {formatTimeDisplay(item.startTime)}
+                      {item.endTime && ` - ${formatTimeDisplay(item.endTime)}`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <View style={[styles.priorityIndicator, { backgroundColor: priorityColor }]} />
+            </View>
+
+            {subject && (
+              <View style={styles.taskSubject}>
+                <View style={styles.subjectBadge}>
+                  <Ionicons
+                    name={subject.icon || 'bookmark'}
+                    size={12}
+                    color={subject.color || colors.primary}
+                  />
+                  <Text
+                    style={[styles.subjectText, { color: subject.color || colors.primary }]}
+                  >
+                    {subject.name}
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
-        )}
-      />
+        </BlurView>
+      </TouchableOpacity>
     );
-  }, []);
+  };
+
+  // Loading state
+  if (isLoading && !isRefreshing) {
+    return (
+      <SafeAreaView style={timelineStyles.safeArea} edges={['top']}>
+        <View style={timelineStyles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={timelineStyles.container}>
-      {/* Enhanced Header with Dropdown */}
-      <View style={timelineStyles.headerWrapper}>
-        <TimelineHeader
-          filteredEventsCount={filteredEvents.length}
-          filterBy={filterBy}
-          showMenu={showMenu}
-          setShowMenu={setShowMenu}
-        />
+    <SafeAreaView style={timelineStyles.safeArea} edges={['top']}>
+      <TimelineHeader
+        currentDate={selectedDate}
+        onMenuPress={() => setShowMenu(true)}
+        onTodayPress={handleTodayPress}
+        taskCount={filteredTasks.length}
+        headerOpacity={headerOpacity}
+      />
 
-        <TimelineMenuDropdown
-          showMenu={showMenu}
-          filterBy={filterBy}
-          isRefreshing={isRefreshing}
-          onRefreshEvents={handleRefreshEvents}
-          onFilterChange={handleFilterChange}
-          onClose={handleCloseMenu}
-        />
+      <Calendar
+        current={selectedDate}
+        onDayPress={handleDateSelect}
+        markedDates={markedDates}
+        theme={getCalendarTheme()}
+        enableSwipeMonths
+        style={styles.calendar}
+        hideExtraDays={true}
+        firstDay={1}
+      />
+
+      <View style={styles.taskListContainer}>
+        <BlurView intensity={15} tint="light" style={styles.taskListHeader}>
+          <View style={styles.taskListHeaderContent}>
+            <Text style={styles.taskListTitle}>
+              {filteredTasks.length} {filteredTasks.length === 1 ? 'Task' : 'Tasks'}
+            </Text>
+            <View style={styles.taskListBadge}>
+              <Text style={styles.taskListBadgeText}>{selectedDate}</Text>
+            </View>
+          </View>
+        </BlurView>
+
+        {filteredTasks.length > 0 ? (
+          <FlatList
+            data={filteredTasks}
+            renderItem={renderTaskItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.taskList}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={colors.primary}
+              />
+            }
+            showsVerticalScrollIndicator={false}
+          />
+        ) : (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIllustration}>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="calendar-outline" size={48} color={colors.primary} />
+              </View>
+              <View style={styles.emptyDecorativeElements}>
+                <View style={[styles.decorativeDot, styles.dot1]} />
+                <View style={[styles.decorativeDot, styles.dot2]} />
+                <View style={[styles.decorativeDot, styles.dot3]} />
+              </View>
+            </View>
+            <View style={styles.emptyContent}>
+              <Text style={styles.emptyTitle}>No tasks scheduled</Text>
+              <Text style={styles.emptySubtitle}>
+                Your calendar is clear for this day. Add a study task to get started.
+              </Text>
+              <TouchableOpacity 
+                style={styles.emptyActionButton}
+                onPress={() => {/* Add task logic */}}
+                activeOpacity={0.8}
+              >
+                <View style={styles.emptyActionContent}>
+                  <Ionicons name="add-circle" size={18} color={colors.primary} />
+                  <Text style={styles.emptyActionText}>Add task</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
 
-      {/* Calendar and Timeline Container with proper flex constraints */}
-      <View style={{ flex: 1 }}>
-        <CalendarProvider
-          date={currentDate}
-          onDateChanged={handleDateChanged}
-          onMonthChange={handleMonthChange}
-          showTodayButton
-          disabledOpacity={0.6}
-          theme={calendarTheme}
-          todayButtonStyle={timelineStyles.todayButton}
-        >
-          {/* Calendar with constrained height */}
-          <View>
-            <ExpandableCalendar
-              key={calendarKey}
-              ref={calendarRef}
-              firstDay={1}
-              markedDates={markedDates}
-              theme={calendarTheme}
-              hideKnob={false}
-              initialPosition="closed"
-              renderDay={renderDay}
-              leftArrowImageSource={leftArrowIcon}
-              rightArrowImageSource={rightArrowIcon}
-              renderHeader={renderHeader}
-              onCalendarToggled={onCalendarToggled}
-            />
-          </View>
-          
-          
-          {/* Timeline Container with proper flex and overflow handling */}
-          <View style={[timelineStyles.timelineContainer]}>
-            <TimelineList
-              events={filteredEventsByDate}
-              timelineProps={timelineProps}
-              renderItem={renderItem}
-              showNowIndicator
-            />
-          </View>
-          <AddTaskButton />
-        </CalendarProvider>
-      </View>
+      <TimelineMenuDropdown
+        visible={showMenu}
+        onClose={() => setShowMenu(false)}
+        filterBy={filterBy}
+        onFilterChange={setFilterBy}
+        onRefresh={handleRefresh}
+      />
 
       <TaskDetailModal
         visible={showTaskModal}
-        onClose={handleCloseTaskModal}
         task={selectedTask}
-        onUpdateTask={handleUpdateTask}
-        onDeleteTask={handleDeleteTask}
+        onClose={() => {
+          setShowTaskModal(false);
+          setSelectedTask(null);
+        }}
+        onUpdate={handleUpdateTask}
+        onDelete={handleDeleteTask}
+        onComplete={handleToggleComplete}
       />
+
+      <AddTaskButton defaultDate={selectedDate} />
     </SafeAreaView>
   );
-};
+}
 
-// Styles for the help text component
-const helpTextStyles = {
-  container: {
-    position: 'absolute',
-    top: 115,
-    left: 0,
-    right: 0,
+const styles = StyleSheet.create({
+  calendar: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    backgroundColor: colors.backgroundSecondary,
+  },
+  taskListContainer: {
+    flex: 1,
+    backgroundColor: colors.backgroundSecondary,
+  },
+  taskListHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  },
+  taskListHeaderContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 2,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  contentContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
+  taskListTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
   },
-  helpItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  taskListBadge: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
   },
-  helpText: {
+  taskListBadgeText: {
     fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  taskList: {
+    paddingBottom: 120,
+    paddingTop: spacing.sm,
+  },
+  taskCardContainer: {
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.xs,
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...shadows.card,
+  },
+  taskCard: {
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  taskCardContent: {
+    padding: spacing.lg,
+  },
+  taskHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+    marginTop: 2,
+    backgroundColor: colors.surface,
+  },
+  checkboxCompleted: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
+  },
+  taskInfo: {
+    flex: 1,
+  },
+  taskTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    lineHeight: 22,
+  },
+  taskTitleCompleted: {
+    textDecorationLine: 'line-through',
+    color: colors.textTertiary,
+  },
+  taskTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    gap: 4,
+  },
+  taskTime: {
+    fontSize: 13,
     color: colors.textSecondary,
     fontWeight: '500',
   },
-  separator: {
-    width: 1,
-    height: 12,
-    backgroundColor: colors.border,
-    marginHorizontal: 5,
+  priorityIndicator: {
+    width: 4,
+    height: 24,
+    borderRadius: 2,
+    marginLeft: spacing.sm,
+    marginTop: 2,
   },
-  closeButton: {
+  taskSubject: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  subjectBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
     borderRadius: 12,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.backgroundTertiary,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    gap: 4,
+  },
+  subjectText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 4
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl * 2,
   },
-};
-
-export default TimelineCalendarScreen;
+  emptyIllustration: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
+  },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primarySoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  emptyDecorativeElements: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  decorativeDot: {
+    position: 'absolute',
+    borderRadius: 50,
+    backgroundColor: colors.primarySoft,
+  },
+  dot1: {
+    width: 16,
+    height: 16,
+    top: -5,
+    right: -5,
+  },
+  dot2: {
+    width: 10,
+    height: 10,
+    bottom: 15,
+    left: -8,
+  },
+  dot3: {
+    width: 12,
+    height: 12,
+    top: 25,
+    left: -10,
+  },
+  emptyContent: {
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 280,
+  },
+  emptyActionButton: {
+    marginTop: spacing.md,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  emptyActionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  emptyActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    letterSpacing: 0.2,
+  },
+});

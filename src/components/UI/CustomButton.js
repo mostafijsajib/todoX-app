@@ -1,243 +1,135 @@
-import React from 'react';
-import { Pressable, StyleSheet, ActivityIndicator, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import CustomText from './CustomText';
-import { colors, spacing, borderRadius, shadows } from '@/constants/Colors';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { colors, spacing, typography, borderRadius } from '@/constants/Colors';
 
 /**
- * Enhanced CustomButton component with refined design and versatile usage
- * Supports primary, secondary, outline, ghost, and danger variants with rounded options
+ * CustomButton Component
+ * Reusable button with consistent styling
  */
-const CustomButton = ({ 
-  title, 
-  onPress, 
-  style, 
+const CustomButton = ({
+  title,
+  onPress,
+  style,
   textStyle,
   variant = 'primary',
   size = 'medium',
   disabled = false,
   loading = false,
   icon,
-  iconPosition = 'left',
-  fullWidth = false,
-  rounded = false, // New prop for pill-shaped buttons
-  ...props 
 }) => {
-  const buttonStyles = [
-    styles.base,
-    styles[variant],
-    styles[size],
-    fullWidth && styles.fullWidth,
-    rounded && styles.rounded, // Apply rounded style if prop is true
-    disabled && styles.disabled,
-    style
-  ];
+  const getVariantStyle = () => {
+    switch (variant) {
+      case 'primary':
+        return styles.primaryButton;
+      case 'secondary':
+        return styles.secondaryButton;
+      case 'outline':
+        return styles.outlineButton;
+      case 'danger':
+        return styles.dangerButton;
+      default:
+        return styles.primaryButton;
+    }
+  };
 
-  const textStyles = [
-    styles.text,
-    styles[`text_${variant}`],
-    styles[`text_${size}`],
-    disabled && styles.textDisabled,
-    textStyle
-  ];
+  const getSizeStyle = () => {
+    switch (size) {
+      case 'small':
+        return styles.smallButton;
+      case 'medium':
+        return styles.mediumButton;
+      case 'large':
+        return styles.largeButton;
+      default:
+        return styles.mediumButton;
+    }
+  };
 
-  const renderContent = () => (
-    <>
-      {loading ? (
-        <ActivityIndicator 
-          size="small" 
-          color={variant === 'primary' || variant === 'danger' ? colors.white : colors.primary} 
-        />
-      ) : (
-        <>
-          {icon && iconPosition === 'left' && (
-            <View style={styles.iconWrapper}>
-              {icon}
-            </View>
-          )}
-          <CustomText style={textStyles}>{title}</CustomText>
-          {icon && iconPosition === 'right' && (
-            <View style={styles.iconWrapper}>
-              {icon}
-            </View>
-          )}
-        </>
-      )}
-    </>
-  );
-
-  if (variant === 'primary' || variant === 'danger') {
-    const gradientColors = variant === 'primary' 
-      ? colors.gradients.primary 
-      : [colors.error, colors.errorDark];
-
-    return (
-      <Pressable 
-        style={({ pressed }) => [
-          buttonStyles,
-          pressed && styles.pressed,
-        ]}
-        onPress={onPress}
-        disabled={disabled || loading}
-        android_ripple={{ 
-          color: colors.white + '30', // Softer ripple effect
-          borderless: false 
-        }}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: disabled || loading }}
-        accessibilityLabel={title}
-        {...props}
-      >
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.gradient, rounded && styles.roundedGradient]}
-        >
-          {renderContent()}
-        </LinearGradient>
-      </Pressable>
-    );
-  }
+  const getTextStyle = () => {
+    switch (variant) {
+      case 'outline':
+        return styles.outlineButtonText;
+      default:
+        return styles.buttonText;
+    }
+  };
 
   return (
-    <Pressable 
-      style={({ pressed }) => [
-        buttonStyles,
-        pressed && styles.pressed,
+    <TouchableOpacity
+      style={[
+        styles.button,
+        getVariantStyle(),
+        getSizeStyle(),
+        disabled && styles.disabledButton,
+        style,
       ]}
       onPress={onPress}
       disabled={disabled || loading}
-      android_ripple={{ 
-        color: colors.primary + '30', // Softer ripple effect
-        borderless: false 
-      }}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: disabled || loading }}
-      accessibilityLabel={title}
-      {...props}
+      activeOpacity={0.7}
     >
-      {renderContent()}
-    </Pressable>
+      {loading ? (
+        <ActivityIndicator color="#FFFFFF" />
+      ) : (
+        <>
+          {icon}
+          <Text style={[getTextStyle(), textStyle, disabled && styles.disabledText]}>
+            {title}
+          </Text>
+        </>
+      )}
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  base: {
-    borderRadius: borderRadius.lg,
+  button: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    overflow: 'hidden',
-    ...shadows.sm, // Slightly stronger shadow for better depth
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
   },
-  
-  // Variants
-  primary: {
-    ...shadows.colored,
+  primaryButton: {
+    backgroundColor: colors.primary,
   },
-  secondary: {
-    backgroundColor: colors.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: colors.border + '80', // Slightly more opaque border
-    ...shadows.sm,
+  secondaryButton: {
+    backgroundColor: colors.secondary,
   },
-  outline: {
-    backgroundColor: colors.transparent,
-    borderWidth: 1.5,
-    borderColor: colors.primary + 'CC', // Slightly translucent primary color
+  outlineButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
-  ghost: {
-    backgroundColor: colors.transparent,
+  dangerButton: {
+    backgroundColor: colors.error,
   },
-  danger: {
-    ...shadows.md,
-  },
-  
-  // Sizes
-  small: {
-    paddingHorizontal: spacing.sm, // More compact padding
-    paddingVertical: spacing.xs,
-    minHeight: 32, // Smaller height
-  },
-  medium: {
+  smallButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    minHeight: 40, // Slightly smaller than before
   },
-  large: {
+  mediumButton: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    minHeight: 48,
   },
-  
-  // States
-  disabled: {
-    opacity: 0.5, // Slightly less opacity for better contrast
-    shadowOpacity: 0,
-    elevation: 0,
+  largeButton: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
   },
-  pressed: {
-    transform: [{ scale: 0.95 }], // More pronounced press effect
+  disabledButton: {
+    backgroundColor: colors.disabled,
+    opacity: 0.5,
   },
-  fullWidth: {
-    width: '100%',
-  },
-  rounded: {
-    borderRadius: 999, // Pill-shaped buttons
-  },
-  
-  // Gradient container
-  gradient: {
-    flex: 1,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 40, // Match medium size
-  },
-  roundedGradient: {
-    borderRadius: 999, // Ensure gradient matches rounded style
-  },
-  
-  // Text styles
-  text: {
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: typography.md,
     fontWeight: '600',
-    textAlign: 'center',
   },
-  text_primary: {
-    color: colors.white,
-  },
-  text_secondary: {
-    color: colors.textPrimary,
-  },
-  text_outline: {
+  outlineButtonText: {
     color: colors.primary,
+    fontSize: typography.md,
+    fontWeight: '600',
   },
-  text_ghost: {
-    color: colors.primary,
-  },
-  text_danger: {
-    color: colors.white,
-  },
-  text_small: {
-    fontSize: 13, // Slightly smaller font
-  },
-  text_medium: {
-    fontSize: 15,
-  },
-  text_large: {
-    fontSize: 17,
-  },
-  textDisabled: {
+  disabledText: {
     color: colors.disabledText,
-  },
-  
-  // Icon wrapper for consistent spacing
-  iconWrapper: {
-    marginHorizontal: spacing.xs, // Consistent spacing for icons
   },
 });
 

@@ -1,310 +1,468 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Animated, Easing } from 'react-native';
+import React, { memo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/Colors';
+import { colors, spacing, typography, borderRadius, shadows, semanticTypography } from '@/constants/Colors';
 
 /**
- * Individual task item component
+ * TaskItem Component
+ * Beautiful task card with animations and modern design
  */
-const TaskItem = React.memo(({ 
-  item, 
-  index, 
-  onToggleComplete, 
-  onTaskPress, 
-  getPriorityColor, 
-  isSelectionMode = false, 
-  isSelected = false 
+const TaskItem = memo(({
+  task,
+  subject,
+  onPress,
+  onToggleComplete,
+  isSelectionMode = false,
+  isSelected = false,
+  onSelect,
+  onRemove,
 }) => {
-  const itemAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const shadowAnim = useRef(new Animated.Value(0)).current;
+  if (!task) return null;
 
-  useEffect(() => {
-    Animated.timing(itemAnim, {
-      toValue: 1,
-      duration: 400,
-      delay: index * 80,
-      easing: Easing.out(Easing.bezier(0.25, 0.46, 0.45, 0.94)),
-      useNativeDriver: true,
-    }).start();
-  }, [itemAnim, index]);
+  const isCompleted = task.is_completed;
 
-  const handlePressIn = () => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 0.97,
-        useNativeDriver: true,
-        tension: 400,
-        friction: 10,
-      }),
-      Animated.timing(shadowAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 400,
-        friction: 10,
-      }),
-      Animated.timing(shadowAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  };
-
-  const getPriorityLabel = (priority) => {
+  // Priority configuration
+  const getPriorityConfig = (priority) => {
     switch (priority) {
       case 'high':
-        return 'High';
+        return { color: colors.highPriority, label: 'High', icon: 'flame' };
       case 'medium':
-        return 'Med';
+        return { color: colors.mediumPriority, label: 'Medium', icon: 'sunny' };
       case 'low':
-        return 'Low';
+        return { color: colors.lowPriority, label: 'Low', icon: 'leaf' };
       default:
-        return '';
+        return { color: colors.textTertiary, label: '', icon: null };
     }
   };
 
-  const getTaskTag = () => {
-    if (item.category) {
-      return item.category;
+  // Category configuration
+  const getCategoryConfig = (category) => {
+    switch (category) {
+      case 'study':
+        return { icon: 'book', color: colors.categories.study };
+      case 'assignment':
+      case 'homework':
+        return { icon: 'document-text', color: colors.categories.homework };
+      case 'revision':
+        return { icon: 'refresh-circle', color: colors.categories.revision };
+      case 'practice':
+        return { icon: 'bulb', color: colors.categories.practice };
+      case 'project':
+        return { icon: 'folder', color: colors.categories.project };
+      case 'reading':
+        return { icon: 'library', color: colors.categories.reading };
+      case 'exam':
+        return { icon: 'school', color: colors.error };
+      default:
+        return { icon: 'checkbox', color: colors.textTertiary };
     }
-    return 'task';
   };
 
-  const animatedShadowStyle = {
-    shadowOpacity: shadowAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.06, 0.15],
-    }),
-    elevation: shadowAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [4, 8],
-    }),
+  // Format time to 12h format
+  const formatTime = (timeStr) => {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  // Calculate duration between start and end time
+  const getDuration = () => {
+    if (!task.startTime || !task.endTime) return null;
+
+    const [startHours, startMinutes] = task.startTime.split(':').map(Number);
+    const [endHours, endMinutes] = task.endTime.split(':').map(Number);
+
+    const startTotalMinutes = startHours * 60 + startMinutes;
+    const endTotalMinutes = endHours * 60 + endMinutes;
+    const durationMinutes = endTotalMinutes - startTotalMinutes;
+
+    if (durationMinutes <= 0) return null;
+
+    if (durationMinutes < 60) {
+      return `${durationMinutes}m`;
+    }
+
+    const hours = Math.floor(durationMinutes / 60);
+    const minutes = durationMinutes % 60;
+
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  };
+
+  // Check if task is overdue
+  const isOverdue = () => {
+    if (!task.date || isCompleted) return false;
+    const today = new Date().toISOString().split('T')[0];
+    return task.date.split('T')[0] < today;
+  };
+
+  const priorityConfig = getPriorityConfig(task.priority);
+  const categoryConfig = getCategoryConfig(task.category);
+  const overdue = isOverdue();
+  const subjectColor = subject?.color || colors.primary;
+
+  const handlePress = () => {
+    if (isSelectionMode) {
+      onSelect?.(task);
+    } else {
+      onPress?.(task);
+    }
+  };
+
+  const handleCheckPress = () => {
+    onToggleComplete?.(task);
+    onRemove?.(task.id);
   };
 
   return (
-    <Animated.View
-      style={[
-        styles.taskItemContainer,
-        {
-          opacity: itemAnim,
-          transform: [
-            {
-              translateY: itemAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [30, 0],
-              }),
-            },
-            { scale: scaleAnim },
-          ],
-        },
-      ]}
-    >
-      <Animated.View style={[
-        styles.taskItem, 
-        animatedShadowStyle,
-        isSelected && styles.selectedTaskItem
-      ]}>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => onTaskPress(item)}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.taskContent}>
-            {isSelectionMode ? (
-              <TouchableOpacity
-                style={styles.selectionCheckbox}
-                onPress={() => onTaskPress(item)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.selectionCheckboxInner, isSelected && styles.selectedCheckbox]}>
-                  {isSelected && <Ionicons name="checkmark" size={14} color={colors.white} />}
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.checkbox}
-                onPress={() => onToggleComplete(item.id)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.checkboxInner, item.is_completed && styles.checkedBox]}>
-                  {item.is_completed && <Ionicons name="checkmark" size={14} color={colors.white} />}
-                </View>
-              </TouchableOpacity>
-            )}
-            
-            <View style={styles.taskDetails}>
-              <Text
-                style={[styles.taskTitle, item.is_completed && styles.completedText]}
-              >
-                {item.title}
-              </Text>
-              <View style={styles.taskMeta}>
-                <Text style={styles.taskDate}>
-                
-                {item.date ? new Date(item.date).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                }) : 'No date'}
+    <View style={styles.wrapper}>
+      <TouchableOpacity
+        style={[
+          styles.container,
+          isSelected && styles.containerSelected,
+          overdue && styles.containerOverdue,
+        ]}
+        onPress={handlePress}
+        onLongPress={() => onSelect?.(task)}
+        activeOpacity={0.8}
+      >
+        {/* Left accent bar */}
+        <View style={[styles.accentBar, { backgroundColor: subjectColor }]} />
 
-                {item.startTime && item.endTime && ", " + item.startTime + " - " + item.endTime}
+        <View style={styles.content}>
+          {/* Checkbox / Selection */}
+          {isSelectionMode ? (
+            <TouchableOpacity
+              style={[
+                styles.selectionBox,
+                isSelected && styles.selectionBoxSelected,
+              ]}
+              onPress={() => onSelect?.(task)}
+            >
+              {isSelected && (
+                <Ionicons name="checkmark" size={14} color="#FFF" />
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.checkbox,
+                isCompleted && [styles.checkboxCompleted, { backgroundColor: colors.success }],
+              ]}
+              onPress={handleCheckPress}
+            >
+              {isCompleted && (
+                <Ionicons name="checkmark" size={14} color="#FFF" />
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Task Info */}
+          <View style={styles.taskInfo}>
+            {/* Title Row */}
+            <View style={styles.titleRow}>
+              <Text
+                style={[
+                  styles.title,
+                  isCompleted && styles.titleCompleted,
+                ]}
+                numberOfLines={2}
+              >
+                {task.title}
               </Text>
-                <View style={styles.taskTag}>
-                  <Text style={styles.taskTagText}>{getTaskTag()}</Text>
+              
+              {/* Priority indicator */}
+              {task.priority && !isCompleted && (
+                <View style={[styles.priorityBadge, { backgroundColor: `${priorityConfig.color}15` }]}>
+                  <View style={[styles.priorityDot, { backgroundColor: priorityConfig.color }]} />
                 </View>
-              </View>
-            </View>
-            <View style={styles.prioritySection}>
-              <View
-                style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(item.priority) }]}
-              />
-              {item.priority && (
-                <Text style={[styles.priorityLabel, { color: getPriorityColor(item.priority) }]}>
-                  {getPriorityLabel(item.priority)}
-                </Text>
               )}
             </View>
+
+            {/* Meta Row */}
+            <View style={styles.metaRow}>
+              {/* Time */}
+              {task.startTime && (
+                <View style={styles.metaItem}>
+                  <Ionicons name="time-outline" size={14} color={colors.textTertiary} />
+                  <Text style={styles.metaText}>{formatTime(task.startTime)}</Text>
+                </View>
+              )}
+
+              {/* Duration Badge - NEW */}
+              {getDuration() && (
+                <View style={styles.durationBadge}>
+                  <Ionicons name="hourglass-outline" size={14} color={colors.textSecondary} />
+                  <Text style={styles.durationText}>{getDuration()}</Text>
+                </View>
+              )}
+
+              {/* Category Badge */}
+              {task.category && (
+                <View style={[styles.categoryBadge, { backgroundColor: `${categoryConfig.color}12` }]}>
+                  <Ionicons
+                    name={categoryConfig.icon}
+                    size={13}
+                    color={categoryConfig.color}
+                  />
+                  <Text style={[styles.categoryText, { color: categoryConfig.color }]}>
+                    {task.category.charAt(0).toUpperCase() + task.category.slice(1)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Subject Badge */}
+              {subject && (
+                <View style={[styles.subjectBadge, { backgroundColor: `${subjectColor}12` }]}>
+                  <Ionicons
+                    name={subject.icon || 'bookmark'}
+                    size={13}
+                    color={subjectColor}
+                  />
+                  <Text
+                    style={[styles.subjectText, { color: subjectColor }]}
+                    numberOfLines={1}
+                  >
+                    {subject.name}
+                  </Text>
+                </View>
+              )}
+
+              {/* Overdue Badge */}
+              {overdue && (
+                <View style={styles.overdueBadge}>
+                  <Ionicons name="alert-circle" size={13} color={colors.error} />
+                  <Text style={styles.overdueText}>Overdue</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Subtasks Progress */}
+            {task.subTasks && task.subTasks.length > 0 && (
+              <View style={styles.subtasksRow}>
+                <View style={styles.subtasksProgress}>
+                  <View
+                    style={[
+                      styles.subtasksProgressFill,
+                      {
+                        width: `${(task.subTasks.filter(st => st.completed).length / task.subTasks.length) * 100}%`,
+                        backgroundColor: subjectColor,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.subtasksText}>
+                  {task.subTasks.filter(st => st.completed).length}/{task.subTasks.length} subtasks
+                </Text>
+              </View>
+            )}
           </View>
-        </TouchableOpacity>
-      </Animated.View>
-    </Animated.View>
+
+          {/* Chevron */}
+          <View style={styles.chevronContainer}>
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+          </View>
+        </View>
+      </TouchableOpacity>
+    </View>
   );
 });
 
-const styles = {
-  taskItemContainer: {
-    marginHorizontal: 10,
+TaskItem.displayName = 'TaskItem';
+
+const styles = StyleSheet.create({
+  wrapper: {
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.xxs,
   },
-  taskItem: {
+  container: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    marginVertical: 6,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 4,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
-    position: 'relative',
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.neo1,
   },
-  selectedTaskItem: {
-    borderWidth: 2,
+  containerSelected: {
+    backgroundColor: `${colors.primary}08`,
     borderColor: colors.primary,
   },
-  taskItemGradient: {
+  containerOverdue: {
+    borderColor: `${colors.error}50`,
+  },
+  accentBar: {
     position: 'absolute',
     left: 0,
-    right: 0,
     top: 0,
     bottom: 0,
+    width: 5,
+    borderTopLeftRadius: borderRadius.lg,
+    borderBottomLeftRadius: borderRadius.lg,
   },
-  taskContent: {
+  content: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
+    alignItems: 'flex-start',
+    paddingVertical: spacing.sm,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.sm,
   },
   checkbox: {
-    padding: 4,
-  },
-  checkboxInner: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.full,
     borderWidth: 2,
     borderColor: colors.border,
-    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: spacing.sm,
+    marginTop: 2,
   },
-  checkedBox: {
-    backgroundColor: colors.success,
+  checkboxCompleted: {
     borderColor: colors.success,
   },
-  selectionCheckbox: {
-    padding: 4,
-  },
-  selectionCheckboxInner: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  selectionBox: {
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.sm,
     borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
+    borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: spacing.sm,
+    marginTop: 2,
   },
-  selectedCheckbox: {
+  selectionBoxSelected: {
     backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
-  taskDetails: {
+  taskInfo: {
     flex: 1,
+    paddingRight: 8,
   },
-  taskTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  title: {
+    flex: 1,
+    ...semanticTypography.h3,
     color: colors.textPrimary,
-    marginBottom: 6,
-    lineHeight: 22,
   },
-  completedText: {
+  titleCompleted: {
     textDecorationLine: 'line-through',
     color: colors.textTertiary,
   },
-  taskMeta: {
-    flexDirection: 'row',
+  priorityBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    marginLeft: 8,
   },
-  taskDate: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  taskTag: {
-    backgroundColor: colors.primary + '15',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  taskTagText: {
-    fontSize: 10,
-    color: colors.primary,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  prioritySection: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  priorityIndicator: {
+  priorityDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
-  priorityLabel: {
-    fontSize: 10,
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaText: {
+    ...semanticTypography.caption,
+    fontWeight: '500',
+    color: colors.textTertiary,
+  },
+  durationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: `${colors.primary}08`,
+  },
+  durationText: {
+    ...semanticTypography.caption,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: colors.textSecondary,
   },
-  taskSeparator: {
-    height: 1,
-    backgroundColor: colors.border + '30',
-    marginHorizontal: 20,
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
   },
-};
+  categoryText: {
+    fontSize: typography.xxs,
+    fontWeight: '600',
+  },
+  subjectBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+    maxWidth: 100,
+  },
+  subjectText: {
+    fontSize: typography.xxs,
+    fontWeight: '600',
+  },
+  overdueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: `${colors.error}12`,
+    gap: 4,
+  },
+  overdueText: {
+    fontSize: typography.xxs,
+    fontWeight: '600',
+    color: colors.error,
+  },
+  subtasksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 8,
+  },
+  subtasksProgress: {
+    flex: 1,
+    height: 4,
+    backgroundColor: colors.border,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  subtasksProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  subtasksText: {
+    fontSize: typography.xxs,
+    fontWeight: '500',
+    color: colors.textTertiary,
+  },
+  chevronContainer: {
+    justifyContent: 'center',
+    paddingLeft: 4,
+    paddingTop: 2,
+  },
+});
 
 export default TaskItem;

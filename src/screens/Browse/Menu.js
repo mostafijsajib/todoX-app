@@ -1,503 +1,564 @@
-import React, { useState } from 'react';
-import { 
-    View, 
-    Text, 
-    TouchableOpacity, 
-    StyleSheet, 
-    SafeAreaView,
-    ScrollView
-} from 'react-native';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Animated, Dimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '@/constants/Colors';
 import { useNavigation } from '@react-navigation/native';
-import CustomAlert from '@/components/UI/CustomAlert';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSelector } from 'react-redux';
+import { colors, spacing, typography, borderRadius, shadows } from '@/constants/Colors';
+import { selectAllTasks, selectCompletedTasks } from '@/store/Task/task';
+import { useGrades } from '@/hooks';
+import { GlobalSearch } from '@/components/Search';
 
-const BrowseMenu = () => {
-    const navigation = useNavigation();
-    const [alertConfig, setAlertConfig] = useState({
-        visible: false,
-        title: '',
-        message: '',
-        type: 'info',
-        icon: null,
-        buttons: []
-    });
+const { width } = Dimensions.get('window');
 
-    const menuItems = [
-        // {
-        //     id: 'projects',
-        //     title: 'Projects',
-        //     subtitle: 'Organize your workflow',
-        //     icon: 'folder-outline',
-        //     count: 3,
-        //     color: colors.info,
-        // },
-        // {
-        //     id: 'labels',
-        //     title: 'Labels',
-        //     subtitle: 'Tag and categorize',
-        //     icon: 'pricetag-outline',
-        //     count: 5,
-        //     color: colors.secondary,
-        // },
-        {
-            id: 'completed',
-            title: 'Completed Tasks',
-            subtitle: 'View finished tasks',
-            icon: 'checkmark-circle-outline',
-            color: colors.success,
-        },
-        // {
-        //     id: 'trash',
-        //     title: 'Trash',
-        //     subtitle: 'Recover deleted items',
-        //     icon: 'trash-outline',
-        //     isPremium: true,
-        //     color: colors.error,
-        // },
-    ];
+/**
+ * 📱 Browse Menu Screen
+ * Beautiful navigation hub for study tools and settings
+ */
+const Menu = () => {
+  const navigation = useNavigation();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
-    const settingsItems = [
-        // {
-        //     id: 'settings',
-        //     title: 'Settings',
-        //     subtitle: 'App preferences',
-        //     icon: 'settings-outline',
-        //     color: colors.textSecondary,
-        // },
-        {
-            id: 'help',
-            title: 'Help & Feedback',
-            subtitle: 'Get support',
-            icon: 'help-circle-outline',
-            color: colors.textSecondary,
-        },
-        {
-            id: 'upgrade',
-            title: 'Upgrade to Pro',
-            subtitle: 'Unlock premium features',
-            icon: 'star-outline',
-            isPro: true,
-            color: colors.warning,
-        },
-    ];
+  // Get real task data from Redux
+  const allTasks = useSelector(selectAllTasks);
+  const completedTasks = useSelector(selectCompletedTasks);
+  
+  // Get grade data
+  const { overallGPA, loadGrades } = useGrades();
 
-    /**
-     * Show custom alert with configuration
-     */
-    const showAlert = (config) => {
-        setAlertConfig({
-            visible: true,
-            ...config
-        });
-    };
+  // Load grades on mount
+  useEffect(() => {
+    loadGrades();
+  }, []);
 
-    /**
-     * Hide custom alert
-     */
-    const hideAlert = () => {
-        setAlertConfig(prev => ({ ...prev, visible: false }));
-    };
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
-    /**
-     * Show coming soon alert for features under development
-     */
-    const showComingSoonAlert = (featureName, description) => {
-        showAlert({
-            title: `${featureName} Coming Soon!`,
-            message: description || `We're working hard to bring you ${featureName.toLowerCase()}. Stay tuned for updates!`,
-            type: 'coming-soon',
-            icon: 'rocket',
-            buttons: [
-                {
-                    text: 'Got it!',
-                    style: 'primary',
-                    onPress: hideAlert
-                }
-            ]
-        });
-    };
-
-    /**
-     * Show pro feature alert
-     */
-    const showProAlert = (featureName) => {
-        showAlert({
-            title: 'Pro Feature',
-            message: `${featureName} is available in TodoX Pro. Upgrade now to unlock advanced features and boost your productivity!`,
-            type: 'warning',
-            icon: 'star',
-            buttons: [
-                {
-                    text: 'Maybe Later',
-                    style: 'outline',
-                    onPress: hideAlert
-                },
-                {
-                    text: 'Upgrade Now',
-                    style: 'primary',
-                    onPress: () => {
-                        hideAlert();
-                        // Navigate to upgrade screen when implemented
-                        setTimeout(() => {
-                            showComingSoonAlert('Pro Upgrade', 'The upgrade system is being finalized. You\'ll be notified when it\'s ready!');
-                        }, 300);
-                    }
-                }
-            ]
-        });
-    };
-
-    /**
-     * Handle menu item navigation
-     */
-    const handleMenuItemPress = (itemId) => {
-        switch (itemId) {
-            case 'projects':
-                showComingSoonAlert('Projects', 'Organize your tasks into projects for better workflow management.');
-                break;
-            case 'labels':
-                showComingSoonAlert('Labels', 'Tag and categorize your tasks with custom labels for easy filtering.');
-                break;
-            case 'filters':
-                showComingSoonAlert('Advanced Filters', 'Create custom filters to view exactly the tasks you need.');
-                break;
-            case 'completed':
-                // Navigate to completed tasks
-                navigation.navigate('CompletedTask');
-                break;
-            case 'trash':
-                showComingSoonAlert('Trash', 'Recover accidentally deleted tasks from the trash.');
-                break;
-            case 'settings':
-                navigation.navigate('Settings');
-                break;
-            case 'help':
-                // Navigate to help screen
-                navigation.navigate('HelpAndFeedback');
-                break;
-            case 'upgrade':
-                showProAlert('TodoX Pro');
-                break;
-            default:
-                break;
+  // Calculate real statistics
+  const quickStats = useMemo(() => {
+    // Calculate streak (consecutive days with completed tasks)
+    const calculateStreak = () => {
+      if (completedTasks.length === 0) return 0;
+      
+      const sortedTasks = [...completedTasks]
+        .filter(t => t.completed_timestamp)
+        .sort((a, b) => new Date(b.completed_timestamp) - new Date(a.completed_timestamp));
+      
+      if (sortedTasks.length === 0) return 0;
+      
+      let streak = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const completedDates = new Set();
+      sortedTasks.forEach(task => {
+        const date = new Date(task.completed_timestamp);
+        date.setHours(0, 0, 0, 0);
+        completedDates.add(date.toISOString().split('T')[0]);
+      });
+      
+      const datesArray = Array.from(completedDates).sort().reverse();
+      
+      for (let i = 0; i < datesArray.length; i++) {
+        const checkDate = new Date(today);
+        checkDate.setDate(checkDate.getDate() - i);
+        const checkDateStr = checkDate.toISOString().split('T')[0];
+        
+        if (datesArray.includes(checkDateStr)) {
+          streak++;
+        } else if (i > 0) {
+          break;
         }
+      }
+      
+      return streak;
     };
 
-    /**
-     * Render professional menu item with enhanced design
-     */
-    const renderMenuItem = (item) => (
-        <TouchableOpacity 
-            key={item.id} 
-            style={[
-                styles.menuItem,
-                item.isPro && styles.proMenuItem,
-                item.isPremium && styles.premiumMenuItem
-            ]}
-            onPress={() => handleMenuItemPress(item.id)}
-            activeOpacity={0.7}
+    // Calculate total focus time (estimate from completed tasks)
+    const calculateFocusHours = () => {
+      let totalMinutes = 0;
+      completedTasks.forEach(task => {
+        if (task.startTime && task.endTime) {
+          const [startH, startM] = task.startTime.split(':').map(Number);
+          const [endH, endM] = task.endTime.split(':').map(Number);
+          totalMinutes += (endH * 60 + endM) - (startH * 60 + startM);
+        } else {
+          // Estimate 30 minutes per task if no time specified
+          totalMinutes += 30;
+        }
+      });
+      return (totalMinutes / 60).toFixed(1);
+    };
+
+    const streak = calculateStreak();
+    const focusHours = calculateFocusHours();
+    const completedCount = completedTasks.length;
+
+    return [
+      { 
+        icon: 'flame', 
+        label: 'Streak', 
+        value: streak > 0 ? `${streak} day${streak !== 1 ? 's' : ''}` : '0 days', 
+        color: colors.warning 
+      },
+      { 
+        icon: 'trophy', 
+        label: 'Tasks', 
+        value: `${completedCount} done`, 
+        color: colors.success 
+      },
+      { 
+        icon: 'school', 
+        label: 'GPA', 
+        value: overallGPA || 'N/A', 
+        color: colors.info 
+      },
+    ];
+  }, [completedTasks, overallGPA]);
+
+  // Search state
+  const [showSearch, setShowSearch] = useState(false);
+
+  const menuSections = [
+    {
+      title: '📚 Study Tools',
+      items: [
+        {
+          icon: 'library',
+          label: 'My Subjects',
+          screen: 'Subjects',
+          description: 'Manage your courses',
+          color: colors.primary,
+          gradient: colors.gradients.primary,
+        },
+        {
+          icon: 'ribbon',
+          label: 'Exam Planner',
+          screen: 'Exams',
+          description: 'Track exam dates',
+          color: colors.warning,
+          gradient: colors.gradients.warning,
+        },
+        {
+          icon: 'grid',
+          label: 'Study Schedule',
+          screen: 'Timetable',
+          description: 'Weekly timetable',
+          color: colors.info,
+          gradient: colors.gradients.cool,
+        },
+      ],
+    },
+    {
+      title: '📋 Task Views',
+      items: [
+        {
+          icon: 'checkmark-done-circle',
+          label: 'Completed Tasks',
+          screen: 'CompletedTask',
+          description: 'View finished work',
+          color: colors.success,
+          gradient: colors.gradients.success,
+        },
+        {
+          icon: 'git-branch',
+          label: 'Timeline',
+          screen: 'Timeline',
+          description: 'Visual task timeline',
+          color: colors.secondary,
+          gradient: colors.gradients.secondary,
+        },
+        {
+          icon: 'stats-chart',
+          label: 'Grades & GPA',
+          screen: 'Grades',
+          description: 'Track your academic performance',
+          color: colors.primary,
+          gradient: colors.gradients.primary,
+        },
+      ],
+    },
+    {
+      title: '⚙️ Settings',
+      items: [
+        {
+          icon: 'settings',
+          label: 'Preferences',
+          screen: 'Settings',
+          description: 'App settings',
+          color: colors.textSecondary,
+          gradient: ['#64748B', '#94A3B8'],
+        },
+        {
+          icon: 'help-circle',
+          label: 'Help & Feedback',
+          screen: 'HelpAndFeedback',
+          description: 'Get support',
+          color: colors.info,
+          gradient: colors.gradients.cool,
+        },
+      ],
+    },
+  ];
+
+  const handleNavigation = (screen) => {
+    navigation.navigate(screen);
+  };
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Global Search */}
+      <GlobalSearch visible={showSearch} onClose={() => setShowSearch(false)} />
+      
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
         >
-            <View style={styles.menuItemContent}>
-                <View style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}>
-                    <Ionicons 
-                        name={item.icon} 
-                        size={22} 
-                        color={item.isPro ? colors.warning : item.color} 
-                    />
-                </View>
-                <View style={styles.menuItemTextContainer}>
-                    <Text style={[
-                        styles.menuItemTitle,
-                        item.isPro && styles.proText
-                    ]}>
-                        {item.title}
-                        {item.isPremium && (
-                            <View style={styles.premiumBadge}>
-                                <Ionicons name="diamond" size={12} color={colors.warning} />
-                            </View>
-                        )}
-                    </Text>
-                    {item.subtitle && (
-                        <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
-                    )}
-                </View>
+          <View style={styles.headerContent}>
+            <View style={styles.avatarContainer}>
+              <LinearGradient
+                colors={colors.gradients.primary}
+                style={styles.avatar}
+              >
+                <Ionicons name="person" size={28} color={colors.white} />
+              </LinearGradient>
             </View>
-            <View style={styles.menuItemRight}>
-                {item.count && (
-                    <View style={styles.countBadge}>
-                        <Text style={styles.countText}>{item.count}</Text>
-                    </View>
-                )}
-                <Ionicons 
-                    name="chevron-forward" 
-                    size={18} 
-                    color={colors.textTertiary} 
-                />
+            <View style={styles.headerText}>
+              <Text style={styles.greeting}>Welcome back! 👋</Text>
+              <Text style={styles.headerTitle}>Study Dashboard</Text>
             </View>
-        </TouchableOpacity>
-    );
-
-    /**
-     * Render section header with professional styling
-     */
-    const renderSectionHeader = (title, subtitle) => (
-        <View style={styles.sectionHeader}>
-            {/* <Text style={styles.sectionTitle}>{title}</Text>
-            {subtitle && <Text style={styles.sectionSubtitle}>{subtitle}</Text>} */}
-        </View>
-    );
-
-    return (
-        <SafeAreaView style={styles.container}>
-            {/* Professional Header */}
-            <View style={styles.header}>
-                <View style={styles.headerContent}>
-                    <Text style={styles.headerTitle}>TodoX</Text>
-                    <Text style={styles.headerSubtitle}>Explore your workspace</Text>
-                </View>
-            </View>
-
-            <ScrollView 
-                style={styles.content} 
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
+            {/* Search Button */}
+            <TouchableOpacity
+              style={styles.searchButton}
+              onPress={() => setShowSearch(true)}
             >
-                {/* Main Menu Section */}
-                {renderSectionHeader('Workspace', 'Manage your tasks and projects')}
-                <View style={styles.section}>
-                    {menuItems.map(renderMenuItem)}
-                </View>
+              <Ionicons name="search" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Quick Stats */}
+          <View style={styles.statsRow}>
+            {quickStats.map((stat, index) => (
+              <View key={index} style={styles.statCard}>
+                <Ionicons name={stat.icon} size={18} color={stat.color} />
+                <Text style={styles.statValue}>{stat.value}</Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+              </View>
+            ))}
+          </View>
+        </Animated.View>
 
-                {/* Settings Section */}
-                {renderSectionHeader('Preferences', 'App settings and support')}
-                <View style={styles.section}>
-                    {settingsItems.map(renderMenuItem)}
-                </View>
-
-                {/* Enhanced App Info */}
-                <View style={styles.appInfo}>
-                    <View style={styles.appLogoContainer}>
-                        <View style={styles.appLogo}>
-                            <Ionicons name="checkmark-circle" size={32} color={colors.primary} />
-                        </View>
-                        <Text style={styles.appName}>TodoX</Text>
-                        <Text style={styles.appTagline}>Professional Task Management</Text>
+        {/* Menu Sections */}
+        {menuSections.map((section, sectionIndex) => (
+          <Animated.View
+            key={sectionIndex}
+            style={[
+              styles.section,
+              {
+                opacity: fadeAnim,
+                transform: [{
+                  translateY: slideAnim.interpolate({
+                    inputRange: [0, 20],
+                    outputRange: [0, 20 + sectionIndex * 10],
+                  }),
+                }],
+              },
+            ]}
+          >
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+            <View style={styles.sectionContent}>
+              {section.items.map((item, itemIndex) => (
+                <TouchableOpacity
+                  key={itemIndex}
+                  style={[
+                    styles.menuItem,
+                    itemIndex === section.items.length - 1 && styles.menuItemLast,
+                  ]}
+                  onPress={() => handleNavigation(item.screen)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.menuItemLeft}>
+                    <LinearGradient
+                      colors={item.gradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.iconContainer}
+                    >
+                      <Ionicons name={item.icon} size={20} color={colors.white} />
+                    </LinearGradient>
+                    <View style={styles.menuItemContent}>
+                      <Text style={styles.menuItemLabel}>{item.label}</Text>
+                      <Text style={styles.menuItemDescription}>{item.description}</Text>
                     </View>
-                    
-                    <View style={styles.appDetails}>
-                        <View style={styles.appDetailItem}>
-                            <Text style={styles.appVersion}>Version 1.0.0</Text>
-                            <Text style={styles.appBuild}>Build 2024.1</Text>
-                        </View>
-                        <Text style={styles.appDescription}>
-                            Streamline your productivity with intelligent task organization and seamless workflow management.
-                        </Text>
-                    </View>
-                </View>
-            </ScrollView>
+                  </View>
+                  <View style={styles.chevronContainer}>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={colors.textTertiary}
+                    />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+        ))}
 
-            {/* Custom Alert */}
-            <CustomAlert
-                visible={alertConfig.visible}
-                title={alertConfig.title}
-                message={alertConfig.message}
-                type={alertConfig.type}
-                icon={alertConfig.icon}
-                buttons={alertConfig.buttons}
-                onDismiss={hideAlert}
-            />
-        </SafeAreaView>
-    );
+        {/* Motivational Card */}
+        <View style={styles.motivationCard}>
+          <LinearGradient
+            colors={colors.gradients.aurora}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.motivationGradient}
+          >
+            <View style={styles.motivationContent}>
+              <Text style={styles.motivationEmoji}>🎯</Text>
+              <View style={styles.motivationText}>
+                <Text style={styles.motivationTitle}>Stay Focused!</Text>
+                <Text style={styles.motivationSubtitle}>
+                  You're making great progress. Keep it up!
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <View style={styles.footerLogo}>
+            <Ionicons name="school" size={20} color={colors.primary} />
+            <Text style={styles.footerText}>StudyFlow</Text>
+          </View>
+          <Text style={styles.versionText}>Version 2.0.0</Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: colors.background,
-    },
-    header: {
-        paddingHorizontal: spacing.md,
-        paddingTop: spacing.sm,
-        paddingBottom: spacing.sm,
-        backgroundColor: colors.background,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
-    headerContent: {
-        alignItems: 'flex-start',
-    },
-    headerTitle: {
-        fontSize: typography.fontSize['lg'],
-        fontWeight: typography.fontWeight.bold,
-        color: colors.textPrimary,
-        marginBottom: spacing.xs,
-    },
-    headerSubtitle: {
-        fontSize: typography.fontSize.sm,
-        color: colors.textSecondary,
-        fontWeight: typography.fontWeight.medium,
-    },
-    content: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingBottom: spacing.lg,
-    },
-    sectionHeader: {
-        paddingHorizontal: spacing.md,
-        paddingTop: spacing.lg,
-        paddingBottom: spacing.sm,
-    },
-    sectionTitle: {
-        fontSize: typography.fontSize.base,
-        fontWeight: typography.fontWeight.semibold,
-        color: colors.textPrimary,
-        marginBottom: spacing.xs,
-    },
-    sectionSubtitle: {
-        fontSize: typography.fontSize.xs,
-        color: colors.textTertiary,
-        fontWeight: typography.fontWeight.medium,
-    },
-    section: {
-        paddingHorizontal: spacing.md,
-    },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: spacing.md,
-        paddingHorizontal: spacing.md,
-        backgroundColor: colors.surface,
-        borderRadius: borderRadius.lg,
-        marginBottom: spacing.sm,
-        ...shadows.sm,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    proMenuItem: {
-        borderColor: colors.warning,
-        backgroundColor: `${colors.warning}08`,
-    },
-    premiumMenuItem: {
-        borderColor: colors.error,
-        backgroundColor: `${colors.error}08`,
-    },
-    menuItemContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    },
-    iconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: borderRadius.md,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: spacing.sm,
-    },
-    menuItemTextContainer: {
-        flex: 1,
-    },
-    menuItemTitle: {
-        fontSize: typography.fontSize.sm,
-        color: colors.textPrimary,
-        fontWeight: typography.fontWeight.semibold,
-        marginBottom: 2,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    menuItemSubtitle: {
-        fontSize: typography.fontSize.xs,
-        color: colors.textTertiary,
-        fontWeight: typography.fontWeight.medium,
-    },
-    proText: {
-        color: colors.warning,
-    },
-    premiumBadge: {
-        marginLeft: spacing.xs,
-    },
-    menuItemRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-    },
-    countBadge: {
-        backgroundColor: colors.primary,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 2,
-        borderRadius: borderRadius.full,
-        minWidth: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    countText: {
-        fontSize: typography.fontSize.xs,
-        color: colors.white,
-        fontWeight: typography.fontWeight.semibold,
-    },
-    appInfo: {
-        alignItems: 'center',
-        paddingVertical: spacing.xl,
-        paddingHorizontal: spacing.md,
-        marginTop: spacing.md,
-    },
-    appLogoContainer: {
-        alignItems: 'center',
-        marginBottom: spacing.lg,
-    },
-    appLogo: {
-        width: 48,
-        height: 48,
-        borderRadius: borderRadius.xl,
-        backgroundColor: `${colors.primary}15`,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: spacing.sm,
-        ...shadows.sm,
-    },
-    appName: {
-        fontSize: typography.fontSize.lg,
-        fontWeight: typography.fontWeight.bold,
-        color: colors.textPrimary,
-        marginBottom: 2,
-    },
-    appTagline: {
-        fontSize: typography.fontSize.sm,
-        color: colors.textSecondary,
-        fontWeight: typography.fontWeight.medium,
-    },
-    appDetails: {
-        alignItems: 'center',
-        width: '100%',
-    },
-    appDetailItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-        marginBottom: spacing.sm,
-    },
-    appVersion: {
-        fontSize: typography.fontSize.xs,
-        color: colors.textTertiary,
-        fontWeight: typography.fontWeight.medium,
-    },
-    appBuild: {
-        fontSize: typography.fontSize.xs,
-        color: colors.textTertiary,
-        fontWeight: typography.fontWeight.medium,
-        opacity: 0.7,
-    },
-    appDescription: {
-        fontSize: typography.fontSize.xs,
-        color: colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: typography.fontSize.xs * 1.4,
-        fontWeight: typography.fontWeight.medium,
-        maxWidth: '90%',
-    },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xxxl,
+  },
+  // Header
+  header: {
+    padding: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  avatarContainer: {
+    marginRight: spacing.md,
+    ...shadows.medium,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerText: {
+    flex: 1,
+  },
+  searchButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  greeting: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xxs,
+  },
+  headerTitle: {
+    fontSize: typography.xxl,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  // Stats
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statValue: {
+    fontSize: typography.md,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginTop: spacing.xs,
+  },
+  statLabel: {
+    fontSize: typography.xs,
+    color: colors.textTertiary,
+    marginTop: spacing.xxs,
+  },
+  // Sections
+  section: {
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  sectionTitle: {
+    fontSize: typography.md,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  sectionContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  menuItemLast: {
+    borderBottomWidth: 0,
+  },
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  iconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: borderRadius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  menuItemContent: {
+    flex: 1,
+  },
+  menuItemLabel: {
+    fontSize: typography.md,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  menuItemDescription: {
+    fontSize: typography.sm,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  chevronContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Motivation Card
+  motivationCard: {
+    margin: spacing.lg,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    ...shadows.colored,
+  },
+  motivationGradient: {
+    padding: spacing.lg,
+  },
+  motivationContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  motivationEmoji: {
+    fontSize: 40,
+    marginRight: spacing.md,
+  },
+  motivationText: {
+    flex: 1,
+  },
+  motivationTitle: {
+    fontSize: typography.lg,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: spacing.xxs,
+  },
+  motivationSubtitle: {
+    fontSize: typography.sm,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  // Footer
+  footer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    marginTop: spacing.md,
+  },
+  footerLogo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  footerText: {
+    fontSize: typography.md,
+    color: colors.textSecondary,
+    fontWeight: '700',
+  },
+  versionText: {
+    fontSize: typography.xs,
+    color: colors.textQuaternary,
+  },
 });
 
-export default BrowseMenu;
+export default Menu;

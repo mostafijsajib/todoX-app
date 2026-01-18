@@ -1,159 +1,294 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Animated, Easing } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography } from '@/constants/Colors';
+import { colors, spacing, typography, borderRadius } from '@/constants/Colors';
 
 /**
- * Header component for the Inbox screen
+ * InboxHeader Component
+ * Modern header with glassmorphism effects and smooth animations
  */
-const InboxHeader = ({ 
-  filteredTasksCount, 
-  filterBy, 
-  showMenu, 
-  setShowMenu,
-  isSelectionMode,
-  selectedTaskIds,
+const InboxHeader = ({
+  title = 'Tasks',
+  subtitle,
+  taskCount = 0,
+  completedCount = 0,
+  onMenuPress,
+  onSelectionModeToggle,
+  isSelectionMode = false,
+  selectedCount = 0,
+  onSelectAll,
+  onCancelSelection,
   onExitSelectionMode,
-  onBulkComplete 
+  onBulkComplete,
+  headerOpacity = { current: 1 },
 }) => {
-  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const pendingCount = taskCount - completedCount;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.timing(headerOpacity, {
-      toValue: 1,
-      duration: 600,
-      easing: Easing.out(Easing.ease),
+    if (isSelectionMode) {
+      Animated.spring(slideAnim, {
+        toValue: 1,
+        tension: 100,
+        friction: 10,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isSelectionMode]);
+
+  const handleButtonPressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
       useNativeDriver: true,
     }).start();
+  };
 
-    return () => {
-      headerOpacity.stopAnimation();
-    };
-  }, [headerOpacity]);
+  const handleButtonPressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
 
-  /**
-   * Render selection mode header
-   */
-  const renderSelectionHeader = () => (
-    <View style={styles.selectionHeader}>
-      <TouchableOpacity
-        style={styles.selectionButton}
-        onPress={onExitSelectionMode}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="close" size={20} color={colors.textSecondary} />
-      </TouchableOpacity>
-      
-      <Text style={styles.selectionTitle}>
-        {selectedTaskIds.length} selected
-      </Text>
-      
-      {selectedTaskIds.length > 0 && (
-        <TouchableOpacity
-          style={styles.selectionButton}
-          onPress={onBulkComplete}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="checkmark-done" size={20} color={colors.primary} />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+  // Calculate progress
+  const progressPercentage = taskCount > 0 ? Math.round((completedCount / taskCount) * 100) : 0;
 
-  /**
-   * Render normal header
-   */
-  const renderNormalHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.headerContent}>
-        <Text style={styles.headerTitle}>Inbox</Text>
-        <Text style={styles.headerSubtitle}>
-          {filteredTasksCount} {filteredTasksCount === 1 ? 'task' : 'tasks'} 
-          {filterBy !== 'all' && ` (${filterBy} priority)`}
-        </Text>
-      </View>
-      <View style={styles.menuContainer}>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => setShowMenu(!showMenu)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuButtonInner}>
-            <Ionicons name="ellipsis-vertical" size={16} color={colors.textSecondary} />
+  if (isSelectionMode) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.selectionHeader}>
+          <TouchableOpacity 
+            style={styles.iconButton} 
+            onPress={onExitSelectionMode || onCancelSelection}
+          >
+            <Ionicons name="close" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
+          
+          <View style={styles.selectionInfo}>
+            <Text style={styles.selectionCount}>
+              {selectedCount} selected
+            </Text>
           </View>
-        </TouchableOpacity>
+
+          <View style={styles.selectionActions}>
+            {selectedCount > 0 && (
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.completeButton]}
+                onPress={onBulkComplete}
+              >
+                <Ionicons name="checkmark-done" size={18} color="#FFF" />
+                <Text style={styles.completeButtonText}>Done</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity 
+              style={styles.iconButton} 
+              onPress={onSelectAll}
+            >
+              <Ionicons name="checkbox-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
-    </View>
-  );
+    );
+  }
 
   return (
-    <Animated.View style={[styles.headerContainer, { opacity: headerOpacity }]}>
-      {isSelectionMode ? renderSelectionHeader() : renderNormalHeader()}
-    </Animated.View>
+    <View style={styles.container}>
+      <View style={styles.headerContent}>
+        {/* Title Section */}
+        <View style={styles.titleSection}>
+          <Text style={styles.title}>{title}</Text>
+          {subtitle ? (
+            <Text style={styles.subtitle}>{subtitle}</Text>
+          ) : taskCount > 0 ? (
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <View style={[styles.statDot, { backgroundColor: colors.warning }]} />
+                <Text style={styles.statText}>{pendingCount} pending</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <View style={[styles.statDot, { backgroundColor: colors.success }]} />
+                <Text style={styles.statText}>{completedCount} done</Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.subtitle}>No tasks yet</Text>
+          )}
+        </View>
+
+        {/* Actions */}
+        <View style={styles.headerActions}>
+          {taskCount > 0 && (
+            <>
+              {/* Progress Ring */}
+              <View style={styles.progressContainer}>
+                <View style={styles.progressRing}>
+                  <View style={[styles.progressFill, { 
+                    backgroundColor: progressPercentage === 100 ? colors.success : colors.primary 
+                  }]} />
+                  <Text style={styles.progressText}>{progressPercentage}%</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={onSelectionModeToggle}
+                onPressIn={handleButtonPressIn}
+                onPressOut={handleButtonPressOut}
+              >
+                <Ionicons name="checkbox-outline" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </>
+          )}
+          
+          <TouchableOpacity 
+            style={styles.iconButton} 
+            onPress={onMenuPress}
+          >
+            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   );
 };
 
-const styles = {
-  headerContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 4,
+const styles = StyleSheet.create({
+  container: {
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  titleSection: {
     flex: 1,
   },
-  headerTitle: {
-    fontSize: typography.fontSize['lg'],
-    fontWeight: '700',
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
     color: colors.textPrimary,
-    marginBottom: 4,
+    letterSpacing: -0.5,
   },
-  headerSubtitle: {
+  subtitle: {
     fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  statText: {
+    fontSize: 13,
     color: colors.textSecondary,
     fontWeight: '500',
   },
-  menuContainer: {
-    position: 'relative',
+  statDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: colors.border,
+    marginHorizontal: 12,
   },
-  menuButton: {
-    padding: 8,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  menuButtonInner: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  progressContainer: {
+    marginRight: 4,
+  },
+  progressRing: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.border,
+    position: 'relative',
+  },
+  progressFill: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    opacity: 0.15,
+  },
+  progressText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textSecondary,
   },
   selectionHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
   },
-  selectionButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    minWidth: 40,
+  selectionInfo: {
+    flex: 1,
     alignItems: 'center',
   },
-  selectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  selectionCount: {
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.textPrimary,
   },
-};
+  selectionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  completeButton: {
+    backgroundColor: colors.success,
+  },
+  completeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+});
 
 export default InboxHeader;

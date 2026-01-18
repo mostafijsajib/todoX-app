@@ -1,406 +1,404 @@
-import React, { useRef, useCallback, useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
-	Animated,
-	Easing,
-	View,
-	Alert,
-	TouchableOpacity,
-} from "react-native";
-import {
-	ExpandableCalendar,
-	AgendaList,
-	CalendarProvider,
-	WeekCalendar,
-} from "react-native-calendars";
-import { useSelector } from 'react-redux';
-import leftArrowIcon from "@/assets/icons/previous.png";
-import rightArrowIcon from "@/assets/icons/next.png";
-import { getMarkedDates } from "@/utils/gnFunc";
-
-import {
-	UpcomingHeader,
-	UpcomingAgendaItem,
-	UpcomingCalendarHeader,
-	UpcomingMenuDropdown,
-	useUpcomingCalendarTheme,
-	upcomingStyles,
-} from "@/components/Upcoming";
-import AddTaskButton from '@/components/AddTaskButton';
-import TaskDetailModal from '@/components/Tasks/TaskDetailModal';
-import { convertTaskListToAgendaList } from "@/utils/gnFunc";
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  ActivityIndicator,
+  RefreshControl,
+  TouchableOpacity,
+  SectionList,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { Calendar } from 'react-native-calendars';
+import { colors, spacing, typography, borderRadius, shadows } from '@/constants/Colors';
 import useTasks from '@/hooks/useTasks';
-import { spacing } from '@/constants/Colors';
+import useSubjects from '@/hooks/useSubjects';
+import {
+  UpcomingHeader,
+  UpcomingMenuDropdown,
+  UpcomingAgendaItem,
+  upcomingStyles,
+  getUpcomingCalendarTheme,
+  getPriorityColor,
+} from '@/components/Upcoming';
+import { TaskDetailModal } from '@/components/Tasks';
+import AddTaskButton from '@/components/AddTaskButton';
 
-const Upcoming = () => {
-	const task_list = useSelector((state) => state.task.task_list);
-	const calendarTheme = useUpcomingCalendarTheme();
-	const { bulkCompleteTask, updateTask, deleteTask, loadTasksFromStorage } = useTasks();
-	
-	// State management for menu functionality
-	const [showMenu, setShowMenu] = useState(false);
-	const [isSelectionMode, setIsSelectionMode] = useState(false);
-	const [selectedTaskIds, setSelectedTaskIds] = useState([]);
-	const [filterBy, setFilterBy] = useState('all');
-	const [isRefreshing, setIsRefreshing] = useState(false);
-	const [calendarKey, setCalendarKey] = useState(0);
-	const [filteredAgendaItems, setFilteredAgendaItems] = useState([]);
-	const [agendaItems, setAgendaItems] = useState([]);
-	
-	// Task detail modal state
-	const [showTaskModal, setShowTaskModal] = useState(false);
-	const [selectedTask, setSelectedTask] = useState(null);
-	
-	const [weekView, setWeekView] = useState(false);
-	const calendarRef = useRef(null);
-	const rotation = useRef(new Animated.Value(0));
+/**
+ * Upcoming Screen
+ * Calendar view with upcoming study tasks
+ */
+export default function Upcoming() {
+  const { task_list, updateTask, completeTask, uncompleteTask, deleteTask, isLoading, loadTasksFromStorage } = useTasks();
+  const { subject_list } = useSubjects();
 
-	const today = new Date().toISOString().split("T")[0];
+  // State
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showMenu, setShowMenu] = useState(false);
+  const [filterBy, setFilterBy] = useState('all');
+  const [sortBy, setSortBy] = useState('date');
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [calendarExpanded, setCalendarExpanded] = useState(true);
 
-	// Load from Redux
-	const markedDates = useMemo(() => {
-	const dataSource = filterBy === 'all' ? agendaItems : filteredAgendaItems;
-	const newMarked = getMarkedDates(dataSource);
-	return Object.keys(newMarked).length
-		? newMarked
-		: { [today]: { marked: true, dotColor: "#00adf5" } };
-	}, [agendaItems, filteredAgendaItems, filterBy, today]);
+  // Animation
+  const headerOpacity = useRef(new Animated.Value(1)).current;
 
-	
-	useEffect(() => {
-		setAgendaItems(convertTaskListToAgendaList(task_list));
-	}, [task_list]);
-	 
+  // Get today and future dates
+  const today = new Date().toISOString().split('T')[0];
 
-	/**
-	 * Filter agenda items based on current filter 
-	 */
-	const filterAgendaItems = useCallback(() => {
-		// Always use agendaItems as the source for filtering
-		const sourceItems = agendaItems || [];
+  // Get marked dates for calendar
+  const markedDates = useMemo(() => {
+    const dates = {};
+    task_list?.forEach((task) => {
+      if (task.date) {
+        const dateStr = task.date.split('T')[0];
+        const existingDots = dates[dateStr]?.dots || [];
+        const priorityColor = getPriorityColor(task.priority);
 
-		if (filterBy === 'all') {
-			setFilteredAgendaItems(sourceItems);
-			return;
-		}
+        dates[dateStr] = {
+          dots: [...existingDots, { color: priorityColor }].slice(0, 3),
+        };
+      }
+    });
 
-		const filtered = sourceItems.map(section => ({
-			...section,
-			data: section.data.filter(item => {
-				// Skip empty items
-				if (!item.title || item.title === "No tasks today") return false;
-				return item.priority === filterBy;
-			})
-		})).filter(section => section.data.length > 0);
+    // Mark selected date
+    dates[selectedDate] = {
+      ...dates[selectedDate],
+      selected: true,
+      selectedColor: colors.primary,
+    };
 
-		// If no filtered items, show empty state
-		if (filtered.length === 0) {
-			filtered.push({
-				title: today,
-				data: [{ id: "no-filtered-tasks", title: `No ${filterBy} priority tasks` }],
-			});
-		}
+    return dates;
+  }, [task_list, selectedDate]);
 
-		setFilteredAgendaItems(filtered);
-	}, [filterBy, agendaItems, today]);
+  // Filter and group tasks
+  const groupedTasks = useMemo(() => {
+    if (!task_list) return [];
 
-	/**
-	 * Get total filtered tasks count
-	 */
-	const getFilteredTasksCount = useCallback(() => {
-		const dataSource = filterBy === 'all' ? agendaItems : filteredAgendaItems;
-		return dataSource.reduce((total, section) => {
-			return total + section.data.filter(item => item.title && !item.title.includes("No tasks") && !item.title.includes("No ")).length;
-		}, 0);
-	}, [filteredAgendaItems, agendaItems, filterBy]);
+    // Filter tasks
+    let filtered = task_list.filter((task) => {
+      // Only upcoming or today's tasks
+      if (!task.date) return false;
+      const taskDate = task.date.split('T')[0];
+      if (taskDate < today && !showCompleted) return false;
 
-	/**
-	 * Apply filters when filterBy changes
-	 */
-	useEffect(() => {
-		filterAgendaItems();
-		setCalendarKey(Date.now());
-	}, [filterAgendaItems]);
+      // Filter by category
+      if (filterBy !== 'all' && task.category !== filterBy) return false;
 
-	/**
-	 * Handle entering selection mode
-	 */
-	const handleEnterSelectionMode = () => {
-		setIsSelectionMode(true);
-		setSelectedTaskIds([]);
-		setShowMenu(false); 
-	};
+      // Filter completed
+      if (!showCompleted && task.is_completed) return false;
 
-	/**
-	 * Handle exiting selection mode
-	 */
-	const handleExitSelectionMode = () => {
-		setIsSelectionMode(false);
-		setSelectedTaskIds([]);
-	};
+      return true;
+    });
 
-	/**
-	 * Handle refresh tasks from storage
-	 */
-	const handleRefreshTasks = async () => {
-		setIsRefreshing(true);
-		await loadTasksFromStorage();
-		setIsRefreshing(false);
-		setDisplayTasks(task_list);
-		setShowMenu(false);
-	};
+    // Sort tasks
+    if (sortBy === 'priority') {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      filtered = filtered.sort((a, b) => {
+        return (priorityOrder[a.priority] || 3) - (priorityOrder[b.priority] || 3);
+      });
+    } else if (sortBy === 'subject') {
+      filtered = filtered.sort((a, b) => {
+        const subjectA = subject_list?.find((s) => s.id === a.subjectId)?.name || 'ZZZ';
+        const subjectB = subject_list?.find((s) => s.id === b.subjectId)?.name || 'ZZZ';
+        return subjectA.localeCompare(subjectB);
+      });
+    }
 
-	/**
-	 * Handle task selection in selection mode
-	 */
-	const handleTaskSelection = (taskId) => {
-		if (selectedTaskIds.includes(taskId)) {
-			setSelectedTaskIds(selectedTaskIds.filter(id => id !== taskId));
-		} else {
-			setSelectedTaskIds([...selectedTaskIds, taskId]);
-		}
-	};
- 
-	/**
-	 * Handle bulk actions on selected tasks 
-	 */
-	const handleBulkComplete = async () => {
-		try {
-			bulkCompleteTask(selectedTaskIds);
-			setIsSelectionMode(false);
-			setSelectedTaskIds([]);
-		} catch (error) {
-			console.error('Error completing tasks:', error);
-			Alert.alert('Error', 'Failed to complete tasks. Please try again.');
-		}
-	};
+    // Group by date
+    const grouped = {};
+    filtered.forEach((task) => {
+      const dateStr = task.date.split('T')[0];
+      if (!grouped[dateStr]) {
+        grouped[dateStr] = [];
+      }
+      grouped[dateStr].push(task);
+    });
 
-	/**
-	 * Handle task press to open detail modal
-	 */
-	const handleTaskPress = (task) => {
-		// Find the original task from task_list using the task id
-		const originalTask = task_list.find(t => t.id === task.id);
-		if (originalTask) {
-			setSelectedTask(originalTask);
-			setShowTaskModal(true);
-		}
-	};
+    // Sort each group by time if sort is by date
+    if (sortBy === 'date') {
+      Object.keys(grouped).forEach((date) => {
+        grouped[date] = grouped[date].sort((a, b) => {
+          if (a.startTime && b.startTime) {
+            return a.startTime.localeCompare(b.startTime);
+          }
+          if (a.startTime) return -1;
+          if (b.startTime) return 1;
+          return 0;
+        });
+      });
+    }
 
-	/**
-	 * Handle closing task detail modal
-	 */
-	const handleCloseTaskModal = () => {
-		setShowTaskModal(false);
-		setSelectedTask(null);
-	};
+    // Convert to section list format
+    return Object.keys(grouped)
+      .sort()
+      .map((date) => ({
+        title: formatSectionDate(date),
+        date,
+        data: grouped[date],
+      }));
+  }, [task_list, filterBy, sortBy, showCompleted, subject_list, today]);
 
-	/**
-	 * Handle updating a task from TaskDetailModal
-	 */
-	const handleUpdateTask = async (updatedTask) => {
-		try {
-			const success = await updateTask(updatedTask.id, updatedTask);
-			
-			if (success) {
-				// Update selected task if it's the same one being edited
-				if (selectedTask && selectedTask.id === updatedTask.id) {
-					setSelectedTask(updatedTask);
-				}
-			} else {
-				Alert.alert('Error', 'Failed to update task. Please try again.');
-			}
-		} catch (error) {
-			console.error('Error updating task:', error);
-			Alert.alert('Error', 'Failed to update task. Please try again.');
-		}
-	};
+  // Format section date
+  const formatSectionDate = (dateStr) => {
+    const date = new Date(dateStr);
+    const todayDate = new Date(today);
 
-	/**
-	 * Handle deleting a task from TaskDetailModal
-	 */
-	const handleDeleteTask = async (taskId) => {
-		try {
-			const success = await deleteTask(taskId);
-			
-			if (success) {
-				// Close modal if the deleted task was selected
-				if (selectedTask && selectedTask.id === taskId) {
-					handleCloseTaskModal();
-				}
-			} else {
-				Alert.alert('Error', 'Failed to delete task. Please try again.');
-			}
-		} catch (error) {
-			console.error('Error deleting task:', error);
-			Alert.alert('Error', 'Failed to delete task. Please try again.');
-		}
-	};
+    const diffDays = Math.ceil((date - todayDate) / (1000 * 60 * 60 * 24));
 
-	/**
-	 * Handle filter change
-	 */
-	const handleFilterChange = (filter) => {
-		setFilterBy(filter);
-		setShowMenu(false);
-	};
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays === -1) return 'Yesterday';
+    if (diffDays < 0) return `${Math.abs(diffDays)} days ago`;
+    if (diffDays <= 7) return date.toLocaleDateString('en-US', { weekday: 'long' });
 
-	/**
-	 * Handle menu close (for outside click)
-	 */
-	const handleMenuClose = useCallback(() => {
-		setShowMenu(false);
-	}, []);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
-	/**
-	 * Handle task completion toggle
-	 */
-	const handleToggleTaskCompletion = useCallback((taskId) => {
-		if (isSelectionMode) {
-			handleTaskSelection(taskId);
-		} else {
-			bulkCompleteTask([taskId]);
-		}
-	}, [isSelectionMode, handleTaskSelection, bulkCompleteTask]);
+  // Get subject for task
+  const getSubjectForTask = useCallback(
+    (subjectId) => {
+      return subject_list?.find((s) => s.id === subjectId);
+    },
+    [subject_list]
+  );
 
-	/**
-	 * Render agenda item component
-	 */
-	const renderItem = useCallback(({ item }) => {
-		// Generate a unique ID for agenda items if they don't have one
-		const itemId = item.id || `${item.title}_${item.time || 'no-time'}`;
-		
-		return (
-			<UpcomingAgendaItem 
-				item={{ ...item, id: itemId }} 
-				onToggleCompletion={handleToggleTaskCompletion}
-				onTaskPress={isSelectionMode ? () => handleTaskSelection(itemId) : () => handleTaskPress(item)}
-				isSelectionMode={isSelectionMode}
-				isSelected={selectedTaskIds.includes(itemId)}
-			/>
-		);
-	}, [handleToggleTaskCompletion, isSelectionMode, selectedTaskIds, handleTaskSelection, handleTaskPress]);
+  // Statistics
+  const stats = useMemo(() => {
+    if (!task_list) return { total: 0, completed: 0 };
 
-	/**
-	 * Smooth and refined calendar toggle animation
-	 */
-	const toggleCalendarExpansion = useCallback(() => {
-		const isOpen = calendarRef.current?.toggleCalendarPosition();
-		Animated.timing(rotation.current, {
-			toValue: isOpen ? 1 : 0,
-			duration: 250,
-			useNativeDriver: true,
-			easing: Easing.bezier(0.4, 0.0, 0.2, 1),
-		}).start();
-	}, []);
+    const upcoming = task_list.filter((t) => {
+      if (!t.date) return false;
+      return t.date.split('T')[0] >= today;
+    });
 
-	/**
-	 * Render calendar header component
-	 */
-	const renderHeader = useCallback(
-		(date) => {			
-			return (
-				<UpcomingCalendarHeader 
-					date={date}
-					onToggleExpansion={toggleCalendarExpansion}
-				/>
-			);
-		},
-		[toggleCalendarExpansion],
-	);
+    return {
+      total: upcoming.length,
+      completed: upcoming.filter((t) => t.is_completed).length,
+    };
+  }, [task_list, today]);
 
-	/**
-	 * Handle calendar toggle animation
-	 */
-	const onCalendarToggled = useCallback((isOpen) => {
-		rotation.current.setValue(isOpen ? 1 : 0);
-	}, []);
+  // Handlers
+  const handleDateSelect = (day) => {
+    setSelectedDate(day.dateString);
+  };
 
-	/**
-	 * Toggle between week and month view
-	 */
-	const toggleWeekView = useCallback(() => {
-		setWeekView(!weekView);
-		setCalendarKey(Date.now());
-	}, [weekView]);
-	
-	return (
-		<View style={upcomingStyles.container}>
-			{showMenu && (
-				<TouchableOpacity
-					style={upcomingStyles.menuOverlay}
-					onPress={() => setShowMenu(false)}
-					activeOpacity={1}
-				/>
-			)}
+  const handleTodayPress = () => {
+    setSelectedDate(today);
+  };
 
-			<View style={{ position: 'relative'}}>
-				<UpcomingHeader 
-					filteredTasksCount={getFilteredTasksCount()}
-					filterBy={filterBy}
-					showMenu={showMenu}
-					setShowMenu={setShowMenu}
-					isSelectionMode={isSelectionMode}
-					selectedTaskIds={selectedTaskIds}
-					onExitSelectionMode={handleExitSelectionMode}
-					onBulkComplete={handleBulkComplete}
-					weekView={weekView}
-					onToggleWeekView={toggleWeekView}
-				/>
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadTasksFromStorage();
+    setIsRefreshing(false);
+  };
 
-				<UpcomingMenuDropdown
-					showMenu={showMenu}
-					filterBy={filterBy}
-					isRefreshing={isRefreshing}
-					onEnterSelectionMode={handleEnterSelectionMode}
-					onFilterChange={handleFilterChange}
-					onClose={handleMenuClose}
-					onRefreshTasks={handleRefreshTasks}
-				/>
-			</View>
+  const handleTaskPress = (task) => {
+    setSelectedTask(task);
+    setShowTaskModal(true);
+  };
 
-			<CalendarProvider
-				date={today}
-				showTodayButton
-				todayButtonStyle={upcomingStyles.todayButton}
-				theme={calendarTheme}>
-				{weekView ? (
-					<WeekCalendar
-						testID="week_calendar"
-						firstDay={1}
-						markedDates={markedDates}
-					/>
-				) : (
-					<ExpandableCalendar
-						key={calendarKey}
-						renderHeader={renderHeader}
-						ref={calendarRef}
-						onCalendarToggled={onCalendarToggled}
-						theme={calendarTheme}
-						firstDay={1}
-						markedDates={markedDates}
-						leftArrowImageSource={leftArrowIcon}
-						rightArrowImageSource={rightArrowIcon}
-					/> 
-				)}
-				<AgendaList
-					sections={filterBy === 'all' ? agendaItems : filteredAgendaItems}
-					renderItem={renderItem}
-					sectionStyle={upcomingStyles.section}
-					theme={calendarTheme}
-				/>
-			</CalendarProvider>
+  const handleToggleComplete = async (task) => {
+    if (task.is_completed) {
+      await uncompleteTask(task.id);
+    } else {
+      await completeTask(task.id);
+    }
+  };
 
-			<AddTaskButton />
+  const handleUpdateTask = async (updatedTask) => {
+    return await updateTask(updatedTask.id, updatedTask);
+  };
 
-			<TaskDetailModal
-				visible={showTaskModal}
-				onClose={handleCloseTaskModal}
-				task={selectedTask}
-				onUpdateTask={handleUpdateTask}
-				onDeleteTask={handleDeleteTask}
-			/>
-		</View>
-	);
-};
+  const handleDeleteTask = async (taskId) => {
+    const success = await deleteTask(taskId);
+    if (success) {
+      setShowTaskModal(false);
+      setSelectedTask(null);
+    }
+    return success;
+  };
 
-export default React.memo(Upcoming);
+  // Render section header
+  const renderSectionHeader = ({ section }) => (
+    <View
+      style={[
+        styles.sectionHeader,
+        section.date === today && styles.sectionHeaderToday,
+      ]}
+    >
+      <Text
+        style={[
+          styles.sectionTitle,
+          section.date === today && styles.sectionTitleToday,
+        ]}
+      >
+        {section.title}
+      </Text>
+      <Text style={styles.sectionCount}>
+        {section.data.length} {section.data.length === 1 ? 'task' : 'tasks'}
+      </Text>
+    </View>
+  );
+
+  // Loading state
+  if (isLoading && !isRefreshing) {
+    return (
+      <SafeAreaView style={upcomingStyles.safeArea} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={upcomingStyles.safeArea} edges={['top']}>
+      <UpcomingHeader
+        totalTasks={stats.total}
+        completedTasks={stats.completed}
+        onMenuPress={() => setShowMenu(true)}
+        onTodayPress={handleTodayPress}
+        headerOpacity={headerOpacity}
+      />
+
+      {calendarExpanded && (
+        <Calendar
+          current={selectedDate}
+          onDayPress={handleDateSelect}
+          markedDates={markedDates}
+          markingType="multi-dot"
+          theme={getUpcomingCalendarTheme()}
+          enableSwipeMonths
+          style={styles.calendar}
+        />
+      )}
+
+      <TouchableOpacity
+        style={styles.calendarToggle}
+        onPress={() => setCalendarExpanded(!calendarExpanded)}
+      >
+        <Ionicons
+          name={calendarExpanded ? 'chevron-up' : 'chevron-down'}
+          size={20}
+          color={colors.textTertiary}
+        />
+      </TouchableOpacity>
+
+      {groupedTasks.length > 0 ? (
+        <SectionList
+          sections={groupedTasks}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <UpcomingAgendaItem
+              task={item}
+              subject={getSubjectForTask(item.subjectId)}
+              onPress={handleTaskPress}
+              onToggleComplete={handleToggleComplete}
+            />
+          )}
+          renderSectionHeader={renderSectionHeader}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          stickySectionHeadersEnabled
+        />
+      ) : (
+        <View style={upcomingStyles.emptyAgendaContainer}>
+          <Ionicons name="calendar-outline" size={48} color={colors.textTertiary} />
+          <Text style={upcomingStyles.emptyAgendaText}>No upcoming tasks</Text>
+          <Text style={upcomingStyles.emptyAgendaSubtext}>
+            Create a study task to get started
+          </Text>
+        </View>
+      )}
+
+      <UpcomingMenuDropdown
+        visible={showMenu}
+        onClose={() => setShowMenu(false)}
+        filterBy={filterBy}
+        sortBy={sortBy}
+        onFilterChange={setFilterBy}
+        onSortChange={setSortBy}
+        showCompleted={showCompleted}
+        onToggleCompleted={() => setShowCompleted(!showCompleted)}
+      />
+
+      <TaskDetailModal
+        visible={showTaskModal}
+        task={selectedTask}
+        onClose={() => {
+          setShowTaskModal(false);
+          setSelectedTask(null);
+        }}
+        onUpdate={handleUpdateTask}
+        onDelete={handleDeleteTask}
+        onComplete={handleToggleComplete}
+      />
+
+      <AddTaskButton defaultDate={selectedDate} />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendar: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  calendarToggle: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  list: {
+    paddingBottom: 100,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  sectionHeaderToday: {
+    backgroundColor: colors.primary + '10',
+  },
+  sectionTitle: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.bold,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+  },
+  sectionTitleToday: {
+    color: colors.primary,
+  },
+  sectionCount: {
+    fontSize: typography.sizes.sm,
+    color: colors.textTertiary,
+  },
+});

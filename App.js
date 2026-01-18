@@ -3,18 +3,18 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState, useCallback } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { Provider } from 'react-redux';
+import { Provider, useDispatch } from 'react-redux';
 import { store } from '@/store';
-import AuthNavigation from './src/navigation/AuthNavigation';
-import { colors } from '@/constants/Colors';
-import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { getDataLocalStorage, storeDataLocalStorage } from './src/utils/storage';
-import ErrorBoundary from './src/components/UI/ErrorBoundary';
-import Task from './src/navigation/Tasks'; 
+import { palette } from './src/constants/Theme';
+import MainNavigator from './src/navigation/MainNavigator';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-
-const Stack = createNativeStackNavigator();
+import { SystemBars } from 'react-native-edge-to-edge';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { migrateToStudyPlanner } from './src/utils/migration';
+import { ToastProvider } from '@/components/UI';
+import { getDataLocalStorage } from '@/utils/storage';
+import { setGrades, setSemesters, setCurrentSemester } from '@/store/Grade/grade';
+import { setSettings } from '@/store/Settings/settings';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -40,82 +40,105 @@ export default function App() {
     onLayoutRootView();
   }, [onLayoutRootView]);
 
+  // Initialize edge-to-edge for Android
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      SystemBars.setHidden(false);
+    }
+  }, []);
+
   // Don't render until fonts are loaded
   if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ErrorBoundary>
-        <Provider store={store}>
-          <AuthProvider>
-            <View style={{ backgroundColor: colors.primary, height: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 }} />
-            <RNStatusBar backgroundColor={colors.primary} barStyle="light-content" />
-            <View style={styles.container}>
-              {fontsLoaded ? (
-                <NavigationContainer>
-                  <AppNavigator />
-                </NavigationContainer>
-              ) : (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                </View>
-              )}
-            </View>
-          </AuthProvider>
-        </Provider>
-      </ErrorBoundary>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+          <Provider store={store}>
+            <ToastProvider>
+              <RNStatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+              <View style={styles.container}>
+                {fontsLoaded ? (
+                  <NavigationContainer>
+                    <AppNavigator />
+                  </NavigationContainer>
+                ) : (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={palette.primary[500]} />
+                  </View>
+                )}
+              </View>
+            </ToastProvider>
+          </Provider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
 
 /**
- * AppNavigator component that handles conditional rendering
- * based on authentication state and first launch status
+ * AppNavigator component - runs migration and displays main app
  */
 const AppNavigator = () => {
-  const { isAuthenticated, isLoading } = useAuth();
-  const [isFirstLaunch, setIsFirstLaunch] = useState(null);
+  const [isReady, setIsReady] = useState(false);
+  const dispatch = useDispatch();
 
-  // Check if this is the first app launch
+  // Run migration and load additional data on app startup
   useEffect(() => {
-    const checkFirstLaunch = async () => {
+    const initializeApp = async () => {
       try {
-        const hasLaunched = await getDataLocalStorage('hasLaunched');
-        if (hasLaunched === null) {
-          await storeDataLocalStorage('hasLaunched', 'true');
-          setIsFirstLaunch(true);
+        // 1. Run migration
+        console.log('[App] Running data migration...');
+        const result = await migrateToStudyPlanner();
+        if (result.success) {
+          if (result.alreadyMigrated) {
+            console.log('[App] Data already migrated');
+          } else {
+            console.log('[App] Migration completed successfully:', result.stats);
+          }
         } else {
-          setIsFirstLaunch(false);
+          console.error('[App] Migration failed:', result.error);
         }
+
+        // 2. Load grades data
+        console.log('[App] Loading grades data...');
+        const [grades, semesters, currentSemester] = await Promise.all([
+          getDataLocalStorage('grades'),
+          getDataLocalStorage('semesters'),
+          getDataLocalStorage('current_semester'),
+        ]);
+        
+        if (grades) dispatch(setGrades(grades));
+        if (semesters) dispatch(setSemesters(semesters));
+        if (currentSemester) dispatch(setCurrentSemester(currentSemester));
+
+        // 3. Load app settings
+        console.log('[App] Loading settings...');
+        const settings = await getDataLocalStorage('app_settings');
+        if (settings) dispatch(setSettings(settings));
+
       } catch (error) {
-        console.error('Error checking first launch:', error);
-        setIsFirstLaunch(false); // Default to false on error
+        console.error('[App] Error during initialization:', error);
+      } finally {
+        setIsReady(true);
       }
     };
 
-    checkFirstLaunch();
-  }, []);
-  
-  // Show loading indicator while checking auth state
-  if (isLoading || isFirstLaunch === null) {
+    initializeApp();
+  }, [dispatch]);
+
+  // Show loading indicator while migration runs
+  if (!isReady) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={palette.primary[500]} />
       </View>
     );
   }
-  
+
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Navigator 
-        screenOptions={{ headerShown: false }}
-        initialRouteName={isFirstLaunch ? "Auth" : "Task"}
-      >
-        <Stack.Screen name="Task" component={Task} />
-        <Stack.Screen name="Auth" component={AuthNavigation} />
-      </Stack.Navigator>
+      <MainNavigator />
     </SafeAreaView>
   );
 }
@@ -123,12 +146,12 @@ const AppNavigator = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: palette.gray[50],
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: palette.gray[50],
   },
 });

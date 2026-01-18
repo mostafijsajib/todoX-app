@@ -37,6 +37,16 @@ const useTasks = () => {
       dispatch(setTasks(tasks || []));
   }
 
+  const getCompletedTasks = useCallback(async () => {
+    try {
+      const completedTasks = await getDataLocalStorage(STORAGE_KEYS.COMPLETED_TASKS);
+      return completedTasks || [];
+    } catch (error) {
+      console.error('Error getting completed tasks:', error);
+      return [];
+    }
+  }, []);
+
   const saveTasksToStorage = useCallback(async (tasks, isCompletedTask = false) => {
     try {
       
@@ -206,7 +216,6 @@ const useTasks = () => {
       const updatedTask = {
         ...task,
         is_completed: false,
-        isCompleted: false,
         completed_timestamp: null,
         updated_at: new Date().toISOString(),
       };
@@ -261,7 +270,6 @@ const useTasks = () => {
       const updatedCompletedTasks = tasksToComplete.map(task => ({
         ...task,
         is_completed: true,
-        isCompleted: true,
         completed_timestamp: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }));
@@ -348,25 +356,66 @@ const useTasks = () => {
     }
   }, [dispatch]);
 
+  /**
+   * Complete a single task - wrapper for bulkCompleteTask
+   */
+  const completeTask = useCallback(async (taskId) => {
+    return await bulkCompleteTask([taskId]);
+  }, [bulkCompleteTask]);
+
+  /**
+   * Uncomplete/restore a single task - wrapper for restoreTask
+   */
+  const uncompleteTask = useCallback(async (taskId) => {
+    try {
+      dispatch(setLoading(true));
+
+      // Get the task from completed tasks storage
+      const completedTasks = await getDataLocalStorage(STORAGE_KEYS.COMPLETED_TASKS) ?? [];
+      const task = completedTasks.find(t => t.id === taskId);
+
+      if (!task) {
+        // Try finding in active task list
+        const activeTask = task_list.find(t => t.id === taskId);
+        if (activeTask) {
+          return await restoreTask(activeTask);
+        }
+        console.warn('uncompleteTask: Task not found');
+        return false;
+      }
+
+      return await restoreTask(task);
+    } catch (error) {
+      console.error('Error uncompleting task:', error);
+      dispatch(setError('Failed to restore task'));
+      return false;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  }, [dispatch, task_list, restoreTask]);
+
   // Return all the task operations and state
   return {
     // State
     tasks: task_list,
     loading,
     error,
-    
+
     // Operations
     addTask,
     updateTask,
     deleteTask,
+    completeTask,
+    uncompleteTask,
     bulkCompleteTask,
     bulkUpdateTasks: bulkUpdateTasksHook,
     clearAllTasks,
     loadTasksFromStorage,
+    getCompletedTasks,
     clearAllCompletedTasks,
     bulkDeleteCompletedTasks,
     restoreTask,
-    
+
     // Utility
     refreshTasks: loadTasksFromStorage,
   };

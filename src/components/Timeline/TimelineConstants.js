@@ -1,79 +1,112 @@
-import { CalendarUtils } from 'react-native-calendars';
+/**
+ * Timeline Constants
+ * Shared constants and helper functions for the Timeline feature
+ */
 
-const today = new Date();
+import { colors } from '@/constants/Colors';
 
 /**
- * Get date string with optional offset
+ * Get current date string in YYYY-MM-DD format
  */
-export const getDate = (offset = 0) =>
-  CalendarUtils.getCalendarDateString(new Date().setDate(today.getDate() + offset));
-
-export const INITIAL_TIME = { hour: 1, minutes: 0 }; // Start at 1 AM
-
-/**
- * Array of beautiful colors for random event assignment
- */
-export const eventColors = [
-  '#FF6B6B', // Coral Red
-  '#4ECDC4', // Turquoise
-  '#45B7D1', // Sky Blue
-  '#96CEB4', // Mint Green
-  '#FFEAA7', // Warm Yellow
-  '#DDA0DD', // Plum
-  '#98D8C8', // Seafoam
-  '#F7DC6F', // Golden Yellow
-  '#BB8FCE', // Lavender
-  '#85C1E9', // Light Blue
-  '#F8C471', // Peach
-  '#82E0AA', // Light Green
-  '#F1948A', // Salmon
-  '#85C1E9', // Powder Blue
-  '#D7BDE2', // Light Purple
-  '#A9DFBF', // Pale Green
-  '#F9E79F', // Light Yellow
-  '#AED6F1', // Baby Blue
-  '#F5B7B1', // Pink
-  '#A3E4D7', // Aqua
-];
-
-/**
- * Get a random color from the eventColors array
- */
-export const getRandomEventColor = () => {
-  return eventColors[Math.floor(Math.random() * eventColors.length)];
+export const getDate = (offset = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  return date.toISOString().split('T')[0];
 };
 
 /**
- * Priority configuration for events
+ * Get formatted date for display
  */
-export const priorityConfig = {
-  high: { 
-    color: '#DC2626', 
-    bgColor: '#FEF2F2', 
-    accentColor: '#EF4444',
-    icon: '⚡', 
-    label: 'URGENT',
-    gradient: ['#FEF2F2', '#FFFFFF'],
-    glowColor: '#DC262620'
-  },
-  medium: { 
-    color: '#D97706', 
-    bgColor: '#FFFBEB', 
-    accentColor: '#F59E0B',
-    icon: '⏰', 
-    label: 'NORMAL',
-    gradient: ['#FFFBEB', '#FFFFFF'],
-    glowColor: '#D9770620'
-  },
-  low: { 
-    color: '#059669', 
-    bgColor: '#F0FDF4', 
-    accentColor: '#10B981',
-    icon: '✓', 
-    label: 'LOW',
-    gradient: ['#F0FDF4', '#FFFFFF'],
-    glowColor: '#05966920'
+export const getFormattedDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
+/**
+ * Timeline hour range configuration
+ */
+export const TIMELINE_CONFIG = {
+  START_HOUR: 6,
+  END_HOUR: 24,
+  INTERVAL: 60,
+};
+
+/**
+ * Convert time string to minutes
+ */
+export const timeToMinutes = (timeStr) => {
+  if (!timeStr) return 0;
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+/**
+ * Convert minutes to time string
+ */
+export const minutesToTime = (mins) => {
+  const hours = Math.floor(mins / 60);
+  const minutes = mins % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
+
+/**
+ * Format time for display (12-hour format)
+ */
+export const formatTimeDisplay = (timeStr) => {
+  if (!timeStr) return '';
+  const [hours, minutes] = timeStr.split(':');
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+};
+
+/**
+ * Get priority color for events
+ */
+export const getEventColor = (priority) => {
+  switch (priority) {
+    case 'high':
+      return colors.error;
+    case 'medium':
+      return colors.warning;
+    case 'low':
+      return colors.success;
+    default:
+      return colors.primary;
   }
 };
 
+/**
+ * Default marked dates options
+ */
+export const MARKED_DATE_OPTIONS = {
+  marked: true,
+  dotColor: colors.primary,
+};
 
+/**
+ * Calendar theme configuration
+ */
+export const getCalendarBaseTheme = () => ({
+  backgroundColor: colors.background,
+  calendarBackground: colors.background,
+  textSectionTitleColor: colors.textSecondary,
+  selectedDayBackgroundColor: colors.primary,
+  selectedDayTextColor: colors.textOnPrimary,
+  todayTextColor: colors.primary,
+  dayTextColor: colors.textPrimary,
+  textDisabledColor: colors.textTertiary,
+  dotColor: colors.primary,
+  selectedDotColor: colors.textOnPrimary,
+  arrowColor: colors.primary,
+  monthTextColor: colors.textPrimary,
+  indicatorColor: colors.primary,
+  textDayFontWeight: '400',
+  textMonthFontWeight: '600',
+  textDayHeaderFontWeight: '500',
+});

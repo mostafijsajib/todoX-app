@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "TodoX",
-    "slug": "TodoX",
-    "version": "1.0.1",
-    "orientation": "portrait",
+    "name": "Study Planner",
+    "slug": "StudyPlanner",
+    "version": "1.0.3",
+    "orientation": "default",
     "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -20,7 +20,9 @@
         "foregroundImage": "./src/assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.mahmudsajib01.TodoX"
+      "package": "com.mahmudsajib01.TodoX",
+      "targetSdkVersion": 35,
+      "compileSdkVersion": 35
     },
     "web": {
       "favicon": "./src/assets/favicon.png"

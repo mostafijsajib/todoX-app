@@ -161,3 +161,64 @@ export const quickActions = [
 		action: "setReminder",
 	},
 ];
+
+/**
+ * Subject icon options for student planner
+ */
+export const subjectIcons = {
+  default: 'book-outline',
+  math: 'calculator-outline',
+  science: 'flask-outline',
+  literature: 'library-outline',
+  history: 'time-outline',
+  art: 'color-palette-outline',
+  music: 'musical-notes-outline',
+  sports: 'fitness-outline',
+  language: 'language-outline',
+  computer: 'laptop-outline',
+  physics: 'nuclear-outline',
+  chemistry: 'beaker-outline',
+  biology: 'leaf-outline',
+  geography: 'globe-outline',
+  economics: 'trending-up-outline',
+};
+
+/**
+ * Task type icon options
+ */
+export const taskTypeIcons = {
+  assignment: 'document-text-outline',
+  homework: 'pencil-outline',
+  study: 'book-outline',
+  reading: 'reader-outline',
+  project: 'construct-outline',
+  presentation: 'easel-outline',
+  other: 'ellipsis-horizontal-circle-outline',
+};
+
+/**
+ * Difficulty level icons
+ */
+export const difficultyIcons = {
+  easy: 'happy-outline',
+  medium: 'remove-circle-outline',
+  hard: 'flame-outline',
+};
+
+/**
+ * Default subject colors
+ */
+export const defaultSubjectColors = [
+  colors.subjectColors.indigo,
+  colors.subjectColors.blue,
+  colors.subjectColors.purple,
+  colors.subjectColors.green,
+  colors.subjectColors.orange,
+  colors.subjectColors.pink,
+  colors.subjectColors.teal,
+  colors.subjectColors.cyan,
+  colors.subjectColors.red,
+  colors.subjectColors.yellow,
+  colors.subjectColors.lime,
+  colors.subjectColors.emerald,
+];

@@ -1,164 +1,330 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Animated, Easing } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Pressable, StyleSheet, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/Colors';
+import { colors, spacing, typography, borderRadius, shadows } from '@/constants/Colors';
 
 /**
- * Menu dropdown component for inbox actions and filters
+ * MenuDropdown Component
+ * Beautiful dropdown menu with smooth animations
  */
-const MenuDropdown = ({ 
-  showMenu, 
-  filterBy, 
-  isRefreshing,
+const MenuDropdown = ({
+  visible,
+  onClose,
+  filterBy = 'all',
+  sortBy = 'date',
+  onFilterChange,
+  onSortChange,
+  showCompleted = true,
+  onToggleCompleted,
+  onRefresh,
   onEnterSelectionMode,
-  onRefreshTasks,
-  onFilterChange 
 }) => {
-  const menuOpacity = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  /**
-   * Animate menu visibility
-   */
   useEffect(() => {
-    Animated.timing(menuOpacity, {
-      toValue: showMenu ? 1 : 0,
-      duration: 200,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start();
-  }, [showMenu, menuOpacity]);
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 300,
+          friction: 15,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      scaleAnim.setValue(0.9);
+      opacityAnim.setValue(0);
+    }
+  }, [visible]);
 
-  if (!showMenu) return null;
+  const filterOptions = [
+    { key: 'all', label: 'All Tasks', icon: 'layers-outline' },
+    { key: 'high', label: 'High Priority', icon: 'flame', color: '#FF6B6B' },
+    { key: 'medium', label: 'Medium Priority', icon: 'sunny', color: '#FFB347' },
+    { key: 'low', label: 'Low Priority', icon: 'leaf', color: '#77DD77' },
+  ];
+
+  const sortOptions = [
+    { key: 'date', label: 'By Date', icon: 'calendar-outline' },
+    { key: 'priority', label: 'By Priority', icon: 'flag-outline' },
+    { key: 'subject', label: 'By Subject', icon: 'bookmark-outline' },
+  ];
+
+  if (!visible) return null;
 
   return (
-    <Animated.View style={[styles.menuDropdown, { opacity: menuOpacity }]}>
-      <TouchableOpacity
-        style={styles.menuItem}
-        onPress={onEnterSelectionMode}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="checkmark-circle-outline" size={18} color={colors.primary} />
-        <Text style={styles.menuItemText}>Select Tasks</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={styles.menuItem}
-        onPress={onRefreshTasks}
-        activeOpacity={0.7}
-        disabled={isRefreshing}
-      >
-        <Ionicons 
-          name={isRefreshing ? "sync" : "refresh-outline"} 
-          size={18} 
-          color={isRefreshing ? colors.textTertiary : colors.success} 
-        />
-        <Text style={[styles.menuItemText, isRefreshing && styles.disabledText]}>
-          {isRefreshing ? 'Refreshing...' : 'Refresh'}
-        </Text>
-      </TouchableOpacity>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Animated.View
+          style={[
+            styles.menuContainer,
+            {
+              opacity: opacityAnim,
+              transform: [{ scale: scaleAnim }],
+            },
+          ]}
+        >
+          {/* Header */}
+          <View style={styles.menuHeader}>
+            <Text style={styles.menuTitle}>Options</Text>
+          </View>
 
-      <View style={styles.menuSeparator} />
+          {/* Quick Actions */}
+          <View style={styles.quickActions}>
+            <TouchableOpacity
+              style={styles.quickAction}
+              onPress={() => {
+                onRefresh?.();
+                onClose();
+              }}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: `${colors.info}15` }]}>
+                <Ionicons name="refresh" size={18} color={colors.info} />
+              </View>
+              <Text style={styles.quickActionText}>Refresh</Text>
+            </TouchableOpacity>
 
-      <Text style={styles.menuSectionTitle}>Filter by Priority</Text>
-      
-      <TouchableOpacity
-        style={[styles.menuItem, filterBy === 'all' && styles.activeMenuItem]}
-        onPress={() => onFilterChange('all')}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="list-outline" size={18} color={colors.textSecondary} />
-        <Text style={styles.menuItemText}>All Tasks</Text>
-        {filterBy === 'all' && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={[styles.menuItem, filterBy === 'high' && styles.activeMenuItem]}
-        onPress={() => onFilterChange('high')}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.priorityDot, { backgroundColor: colors.error }]} />
-        <Text style={styles.menuItemText}>High Priority</Text>
-        {filterBy === 'high' && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={[styles.menuItem, filterBy === 'medium' && styles.activeMenuItem]}
-        onPress={() => onFilterChange('medium')}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.priorityDot, { backgroundColor: colors.warning }]} />
-        <Text style={styles.menuItemText}>Medium Priority</Text>
-        {filterBy === 'medium' && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={[styles.menuItem, filterBy === 'low' && styles.activeMenuItem]}
-        onPress={() => onFilterChange('low')}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.priorityDot, { backgroundColor: colors.success }]} />
-        <Text style={styles.menuItemText}>Low Priority</Text>
-        {filterBy === 'low' && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-      </TouchableOpacity>
-    </Animated.View>
+            <TouchableOpacity
+              style={styles.quickAction}
+              onPress={() => {
+                onEnterSelectionMode?.();
+                onClose();
+              }}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: `${colors.primary}15` }]}>
+                <Ionicons name="checkbox-outline" size={18} color={colors.primary} />
+              </View>
+              <Text style={styles.quickActionText}>Select</Text>
+            </TouchableOpacity>
+
+            {onToggleCompleted && (
+              <TouchableOpacity
+                style={styles.quickAction}
+                onPress={() => {
+                  onToggleCompleted();
+                  onClose();
+                }}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: `${colors.success}15` }]}>
+                  <Ionicons
+                    name={showCompleted ? 'eye-outline' : 'eye-off-outline'}
+                    size={18}
+                    color={colors.success}
+                  />
+                </View>
+                <Text style={styles.quickActionText}>
+                  {showCompleted ? 'Hide' : 'Show'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* Filter Section */}
+          <Text style={styles.sectionLabel}>Filter by Priority</Text>
+          <View style={styles.optionsGrid}>
+            {filterOptions.map((option) => {
+              const isActive = filterBy === option.key;
+              return (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[
+                    styles.optionChip,
+                    isActive && { 
+                      backgroundColor: `${option.color || colors.primary}15`,
+                      borderColor: option.color || colors.primary,
+                    },
+                  ]}
+                  onPress={() => {
+                    onFilterChange?.(option.key);
+                    onClose();
+                  }}
+                >
+                  <Ionicons
+                    name={option.icon}
+                    size={16}
+                    color={option.color || (isActive ? colors.primary : colors.textSecondary)}
+                  />
+                  <Text
+                    style={[
+                      styles.optionChipText,
+                      isActive && { color: option.color || colors.primary, fontWeight: '600' },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* Sort Section */}
+          <Text style={styles.sectionLabel}>Sort by</Text>
+          <View style={styles.sortOptions}>
+            {sortOptions.map((option) => {
+              const isActive = sortBy === option.key;
+              return (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[
+                    styles.sortOption,
+                    isActive && styles.sortOptionActive,
+                  ]}
+                  onPress={() => {
+                    onSortChange?.(option.key);
+                    onClose();
+                  }}
+                >
+                  <Ionicons
+                    name={option.icon}
+                    size={18}
+                    color={isActive ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.sortOptionText,
+                      isActive && styles.sortOptionTextActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                  {isActive && (
+                    <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Animated.View>
+      </Pressable>
+    </Modal>
   );
 };
 
-const styles = {
-  menuDropdown: {
-    position: 'absolute',
-    top: 48,
-    right: 0,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingVertical: 8,
-    minWidth: 200,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-    zIndex: 1000,
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  menuItem: {
+  menuContainer: {
+    position: 'absolute',
+    right: spacing.md,
+    top: 100,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: spacing.md,
+    minWidth: 280,
+    maxWidth: 320,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.large,
+  },
+  menuHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
-  activeMenuItem: {
-    backgroundColor: colors.primary + '10',
-  },
-  menuItemText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.textPrimary,
   },
-  disabledText: {
-    color: colors.textTertiary,
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: spacing.md,
   },
-  menuSeparator: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 8,
-    marginHorizontal: 16,
+  quickAction: {
+    alignItems: 'center',
+    gap: 6,
   },
-  menuSectionTitle: {
-    fontSize: 12,
+  quickActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickActionText: {
+    fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm,
+    marginHorizontal: -spacing.md,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
   },
-  priorityDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  optionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-};
+  optionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    gap: 6,
+  },
+  optionChipText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  sortOptions: {
+    gap: 4,
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    gap: 10,
+  },
+  sortOptionActive: {
+    backgroundColor: `${colors.primary}10`,
+  },
+  sortOptionText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  sortOptionTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+});
 
 export default MenuDropdown;
