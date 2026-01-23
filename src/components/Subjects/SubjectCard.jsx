@@ -1,14 +1,11 @@
 /**
  * 📚 SubjectCard Component
- * Beautiful subject cards with progress visualization
- * Student-focused design with motivational elements
+ * Clean, minimal subject cards with subtle styling
  */
 
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, borderRadius, typography, shadows } from '@/constants/Colors';
+import { colors, spacing, borderRadius, typography } from '@/constants/Colors';
 
 const SubjectCard = ({
   subject,
@@ -17,110 +14,61 @@ const SubjectCard = ({
   onPress,
   onLongPress,
   style,
-  index = 0,
 }) => {
   // Calculate progress percentage
   const progress = taskCount > 0 ? (completedCount / taskCount) * 100 : 0;
   const isComplete = taskCount > 0 && completedCount === taskCount;
-  
-  // Animations
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(new Animated.Value(0)).current;
-  
-  useEffect(() => {
-    // Staggered entrance animation
-    const delay = index * 80;
-    
-    Animated.sequence([
-      Animated.delay(delay),
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 50,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-    
-    // Animate progress bar
-    Animated.timing(progressAnim, {
-      toValue: progress,
-      duration: 800,
-      delay: delay + 300,
-      useNativeDriver: false,
-    }).start();
-  }, [progress, index]);
-  
-  const progressWidth = progressAnim.interpolate({
-    inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
-  });
 
-  // Get gradient colors based on subject color
-  const getGradientColors = () => {
-    const baseColor = subject.color || colors.primary;
-    return [baseColor + '15', baseColor + '08'];
+  // Convert hex to rgba for opacity
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
   // Get status message
   const getStatusMessage = () => {
-    if (taskCount === 0) return 'Start adding tasks';
-    if (isComplete) return '✨ All done!';
+    if (taskCount === 0) return 'No tasks yet';
+    if (isComplete) return 'All done!';
     const remaining = taskCount - completedCount;
-    return `${remaining} task${remaining !== 1 ? 's' : ''} left`;
+    return `${remaining} remaining`;
   };
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        style,
-        {
-          transform: [{ scale: scaleAnim }],
-          opacity: opacityAnim,
-        },
-      ]}
-    >
+    <View style={[styles.container, style]}>
       <TouchableOpacity
-        activeOpacity={0.85}
+        activeOpacity={0.7}
         onPress={onPress}
         onLongPress={onLongPress}
         style={styles.touchable}
       >
-        <LinearGradient
-          colors={getGradientColors()}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.card}
-        >
-          {/* Colored accent bar */}
+        <View style={styles.card}>
           <View style={[styles.accentBar, { backgroundColor: subject.color }]} />
-          
-          {/* Decorative background circle */}
-          <View style={[styles.decorativeCircle, { backgroundColor: subject.color + '10' }]} />
-          
           {/* Main content */}
           <View style={styles.content}>
-            {/* Icon with glow effect */}
-            <View style={styles.iconSection}>
-              <View style={[styles.iconGlow, { backgroundColor: subject.color + '30' }]} />
-              <View style={[styles.iconContainer, { backgroundColor: subject.color + '25' }]}>
+            <View style={styles.topRow}>
+              {/* Icon */}
+              <View style={[styles.iconContainer, { backgroundColor: hexToRgba(subject.color, 0.12) }]}>
                 <Ionicons
                   name={subject.icon || 'book'}
-                  size={28}
+                  size={22}
                   color={subject.color}
                 />
+                {/* Complete badge */}
+                {isComplete && (
+                  <View style={styles.completeBadge}>
+                    <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                  </View>
+                )}
               </View>
-              {isComplete && (
-                <View style={styles.completeBadge}>
-                  <Ionicons name="checkmark" size={10} color={colors.white} />
+
+              {taskCount > 0 && (
+                <View style={[styles.progressPill, { backgroundColor: hexToRgba(subject.color, 0.12) }]}>
+                  <Ionicons name="analytics" size={12} color={subject.color} />
+                  <Text style={[styles.progressPillText, { color: subject.color }]}>
+                    {Math.round(progress)}%
+                  </Text>
                 </View>
               )}
             </View>
@@ -135,50 +83,38 @@ const SubjectCard = ({
               {getStatusMessage()}
             </Text>
 
-            {/* Progress section */}
-            <View style={styles.progressSection}>
-              {/* Stats row */}
-              <View style={styles.statsRow}>
-                <View style={styles.statItem}>
-                  <Ionicons name="layers-outline" size={12} color={colors.textTertiary} />
-                  <Text style={styles.statText}>{taskCount}</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Ionicons name="checkmark-circle" size={12} color={colors.success} />
-                  <Text style={[styles.statText, { color: colors.success }]}>{completedCount}</Text>
+            {/* Stats row */}
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Ionicons name="list-outline" size={14} color={colors.textTertiary} />
+                <Text style={styles.statText}>{taskCount} tasks</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Ionicons name="checkmark-circle-outline" size={14} color={colors.success} />
+                <Text style={[styles.statText, { color: colors.success }]}>{completedCount} done</Text>
+              </View>
+            </View>
+
+            {/* Progress bar */}
+            {taskCount > 0 && (
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${progress}%`,
+                        backgroundColor: isComplete ? colors.success : subject.color,
+                      },
+                    ]}
+                  />
                 </View>
               </View>
-
-              {/* Progress bar */}
-              {taskCount > 0 && (
-                <View style={styles.progressContainer}>
-                  <View style={styles.progressBar}>
-                    <Animated.View
-                      style={[
-                        styles.progressFill,
-                        {
-                          width: progressWidth,
-                          backgroundColor: isComplete ? colors.success : subject.color,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={[styles.progressPercent, { color: subject.color }]}>
-                    {Math.round(progress)}%
-                  </Text>
-                </View>
-              )}
-            </View>
+            )}
           </View>
-          
-          {/* Shimmer effect for complete subjects */}
-          {isComplete && (
-            <View style={styles.shimmer} />
-          )}
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -186,67 +122,58 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     margin: spacing.xs,
-    minHeight: 180,
-    maxWidth: '50%',
+    minHeight: 170,
+    maxWidth: '48%',
   },
   touchable: {
     flex: 1,
   },
   card: {
     flex: 1,
-    borderRadius: borderRadius.xl,
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
-    position: 'relative',
-    ...shadows.card,
   },
   accentBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
     height: 4,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-  },
-  decorativeCircle: {
-    position: 'absolute',
-    top: -30,
-    right: -30,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: '100%',
   },
   content: {
     flex: 1,
     padding: spacing.md,
-    paddingTop: spacing.lg,
   },
-  iconSection: {
+  topRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: spacing.sm,
   },
-  iconGlow: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    top: -4,
-  },
   iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    position: 'relative',
+  },
+  progressPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  progressPillText: {
+    fontSize: typography.xs,
+    fontWeight: '700',
   },
   completeBadge: {
     position: 'absolute',
-    bottom: 0,
-    right: '30%',
+    bottom: -2,
+    right: -2,
     width: 18,
     height: 18,
     borderRadius: 9,
@@ -254,33 +181,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: colors.surface,
+    borderColor: '#FFFFFF',
   },
   subjectName: {
-    fontSize: typography.md,
+    fontSize: typography.lg,
     fontWeight: '700',
     color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.xxs,
-    letterSpacing: 0.2,
+    marginBottom: spacing.xs,
+    lineHeight: 24,
   },
   statusMessage: {
     fontSize: typography.xs,
     color: colors.textTertiary,
-    textAlign: 'center',
+    fontWeight: '500',
     marginBottom: spacing.sm,
   },
   statusComplete: {
     color: colors.success,
-    fontWeight: '600',
-  },
-  progressSection: {
-    marginTop: 'auto',
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.sm,
   },
   statItem: {
@@ -288,49 +210,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  statDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.sm,
-  },
   statText: {
     fontSize: typography.xs,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    marginTop: 'auto',
   },
   progressBar: {
     flex: 1,
-    height: 6,
-    backgroundColor: colors.surface,
+    height: 8,
+    backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.full,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     borderRadius: borderRadius.full,
-  },
-  progressPercent: {
-    fontSize: typography.xxs,
-    fontWeight: '700',
-    minWidth: 32,
-    textAlign: 'right',
-  },
-  shimmer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.success + '30',
-    borderRadius: borderRadius.xl,
   },
 });
 

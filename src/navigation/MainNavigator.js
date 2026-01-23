@@ -1,23 +1,13 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, StyleSheet, Platform, Pressable, Text } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-  interpolate,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, withSpring, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-
-// Screens
 import Dashboard from '@/screens/Tasks/Today';
 import Schedule from '@/screens/Tasks/Timetable';
 import Subjects from '@/screens/Tasks/Subjects';
 import Exams from '@/screens/Tasks/Exams';
 import Profile from '@/screens/Tasks/More';
-
-// Theme
 import { palette, radius, space, font, shadowPresets, springs } from '@/constants/Theme';
 
 const Tab = createBottomTabNavigator();
@@ -25,9 +15,8 @@ const Tab = createBottomTabNavigator();
 /**
  * Custom Animated Tab Bar Button
  */
-const AnimatedTabButton = ({ onPress, onLongPress, isFocused, routeName, icon, label }) => {
+const AnimatedTabButton = ({ onPress, onLongPress, isFocused, icon, label }) => {
   const scale = useSharedValue(1);
-  const translateY = useSharedValue(0);
 
   const animatedIconStyle = useAnimatedStyle(() => {
     return {
@@ -70,8 +59,8 @@ const AnimatedTabButton = ({ onPress, onLongPress, isFocused, routeName, icon, l
         )}
         <Ionicons
           name={isFocused ? icon : `${icon}-outline`}
-          size={24}
-          color={isFocused ? palette.primary[500] : palette.neutral[400]}
+          size={22}
+          color={isFocused ? palette.primary[600] : palette.neutral[400]}
         />
       </Animated.View>
       <Animated.Text style={[
@@ -196,15 +185,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: palette.neutral[0],
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: palette.neutral[100],
-    ...shadowPresets.lg,
+    borderTopColor: palette.neutral[200],
   },
   tabBarContent: {
     flexDirection: 'row',
     paddingTop: space[2],
-    paddingHorizontal: space[2],
+    paddingHorizontal: space[1],
   },
   tabButton: {
     flex: 1,
@@ -215,23 +203,23 @@ const styles = StyleSheet.create({
   tabButtonInner: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 48,
-    height: 32,
-    borderRadius: radius.lg,
+    width: 44,
+    height: 28,
+    borderRadius: radius.md,
   },
   activeBackground: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: palette.primary[50],
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
   },
   tabLabel: {
-    fontSize: font.size.xs,
+    fontSize: font.size.xxs,
     fontWeight: font.weight.medium,
     color: palette.neutral[400],
-    marginTop: space[1],
+    marginTop: 2,
   },
   tabLabelActive: {
-    color: palette.primary[500],
+    color: palette.primary[600],
     fontWeight: font.weight.semibold,
   },
   activeDot: {
@@ -239,6 +227,6 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: palette.primary[500],
-    marginTop: space[1],
+    marginTop: 3,
   },
 });

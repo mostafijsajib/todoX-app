@@ -6,7 +6,6 @@ import {
   SafeAreaView,
   Text,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { palette, radius, space, font, shadowPresets } from '../../constants/Theme';
@@ -15,8 +14,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import StudyBlockCard from '../../components/Timetable/StudyBlockCard';
 import StudyBlockFormModal from '../../components/Timetable/StudyBlockFormModal';
 import { useSchedule } from '../../hooks';
-
-const { width } = Dimensions.get('window');
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const FULL_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const HOURS = Array.from({ length: 18 }, (_, i) => i + 6); // 6 AM to 11 PM

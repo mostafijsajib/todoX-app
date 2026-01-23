@@ -1,14 +1,13 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useSelector } from 'react-redux';
 import {
   palette,
@@ -16,20 +15,21 @@ import {
   radius,
   space,
   font,
-  shadowPresets,
   achievements,
 } from '@/constants/Theme';
-
-const { width } = Dimensions.get('window');
 
 /**
  * 📊 Study Statistics Component
  * Shows student's study progress, streaks, and achievements
  */
 const StudyStats = () => {
+  const { width } = useWindowDimensions();
   const tasks = useSelector((state) => state.task.task_list || []);
   const subjects = useSelector((state) => state.subject?.subjects || []);
   const exams = useSelector((state) => state.exam?.exams || []);
+
+  // Responsive card height based on screen width
+  const cardMinHeight = width < 375 ? 100 : 120;
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -171,17 +171,17 @@ const StudyStats = () => {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Main Stats Cards */}
-      <Animated.View entering={FadeInUp.duration(500)} style={styles.mainStats}>
+      <View style={styles.mainStats}>
         {/* Streak Card */}
         <View style={styles.mainStatCard}>
           <LinearGradient
             colors={gradients.accent}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.mainStatGradient}
+            style={[styles.mainStatGradient, { minHeight: cardMinHeight }]}
           >
-            <Ionicons name="flame" size={32} color="#FFF" />
-            <Text style={styles.mainStatValue}>{stats.streak}</Text>
+            <Ionicons name="flame" size={width < 375 ? 26 : 32} color="#FFF" />
+            <Text style={[styles.mainStatValue, width < 375 && styles.mainStatValueSmall]}>{stats.streak}</Text>
             <Text style={styles.mainStatLabel}>Day Streak</Text>
           </LinearGradient>
         </View>
@@ -192,10 +192,10 @@ const StudyStats = () => {
             colors={gradients.primary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.mainStatGradient}
+            style={[styles.mainStatGradient, { minHeight: cardMinHeight }]}
           >
-            <Ionicons name="timer" size={32} color="#FFF" />
-            <Text style={styles.mainStatValue}>{stats.focusHours}h</Text>
+            <Ionicons name="timer" size={width < 375 ? 26 : 32} color="#FFF" />
+            <Text style={[styles.mainStatValue, width < 375 && styles.mainStatValueSmall]}>{stats.focusHours}h</Text>
             <Text style={styles.mainStatLabel}>Focus Time</Text>
           </LinearGradient>
         </View>
@@ -206,17 +206,17 @@ const StudyStats = () => {
             colors={gradients.success}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.mainStatGradient}
+            style={[styles.mainStatGradient, { minHeight: cardMinHeight }]}
           >
-            <Ionicons name="checkmark-done-circle" size={32} color="#FFF" />
-            <Text style={styles.mainStatValue}>{stats.completionRate}%</Text>
+            <Ionicons name="checkmark-done-circle" size={width < 375 ? 26 : 32} color="#FFF" />
+            <Text style={[styles.mainStatValue, width < 375 && styles.mainStatValueSmall]}>{stats.completionRate}%</Text>
             <Text style={styles.mainStatLabel}>Complete</Text>
           </LinearGradient>
         </View>
-      </Animated.View>
+      </View>
 
       {/* Weekly Activity */}
-      <Animated.View entering={FadeInUp.delay(100).duration(500)} style={styles.section}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
             <View style={[styles.sectionIcon, { backgroundColor: palette.primary[50] }]}>
@@ -252,11 +252,11 @@ const StudyStats = () => {
             ))}
           </View>
         </View>
-      </Animated.View>
+      </View>
 
       {/* Subject Breakdown */}
       {stats.subjectBreakdown.length > 0 && (
-        <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.section}>
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
               <View style={[styles.sectionIcon, { backgroundColor: palette.secondary[50] }]}>
@@ -292,11 +292,11 @@ const StudyStats = () => {
               </View>
             ))}
           </View>
-        </Animated.View>
+        </View>
       )}
 
       {/* Achievements */}
-      <Animated.View entering={FadeInUp.delay(300).duration(500)} style={styles.section}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
             <View style={[styles.sectionIcon, { backgroundColor: palette.warning[50] }]}>
@@ -354,10 +354,10 @@ const StudyStats = () => {
             );
           })}
         </ScrollView>
-      </Animated.View>
+      </View>
 
       {/* Quick Stats Summary */}
-      <Animated.View entering={FadeInUp.delay(400).duration(500)} style={styles.section}>
+      <View style={styles.section}>
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
@@ -377,7 +377,7 @@ const StudyStats = () => {
             </View>
           </View>
         </View>
-      </Animated.View>
+      </View>
 
       <View style={{ height: space[20] }} />
     </ScrollView>
@@ -401,7 +401,6 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radius.xl,
     overflow: 'hidden',
-    ...shadowPresets.md,
   },
   mainStatGradient: {
     padding: space[4],
@@ -414,6 +413,9 @@ const styles = StyleSheet.create({
     fontWeight: font.weight.bold,
     color: '#FFF',
     marginTop: space[2],
+  },
+  mainStatValueSmall: {
+    fontSize: font.size['2xl'],
   },
   mainStatLabel: {
     fontSize: font.size.xs,
@@ -456,7 +458,6 @@ const styles = StyleSheet.create({
     backgroundColor: palette.neutral[0],
     borderRadius: radius.xl,
     padding: space[4],
-    ...shadowPresets.sm,
   },
   chartContainer: {
     flexDirection: 'row',
@@ -502,7 +503,6 @@ const styles = StyleSheet.create({
     backgroundColor: palette.neutral[0],
     borderRadius: radius.xl,
     padding: space[4],
-    ...shadowPresets.sm,
   },
   subjectRow: {
     flexDirection: 'row',
@@ -567,7 +567,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: space[3],
     alignItems: 'center',
-    ...shadowPresets.sm,
   },
   achievementCardLocked: {
     opacity: 0.6,
@@ -608,7 +607,6 @@ const styles = StyleSheet.create({
     backgroundColor: palette.neutral[0],
     borderRadius: radius.xl,
     padding: space[4],
-    ...shadowPresets.sm,
   },
   summaryRow: {
     flexDirection: 'row',

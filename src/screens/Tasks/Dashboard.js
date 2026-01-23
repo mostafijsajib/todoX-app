@@ -1,48 +1,24 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   RefreshControl,
   Dimensions,
-  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  FadeInUp,
-  FadeInDown,
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-  SlideInRight,
-  Layout,
-} from 'react-native-reanimated';
+import Animated, { FadeInUp, SlideInRight, Layout } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-
-// Components
 import AddTaskButton from '@/components/AddTaskButton/index';
 import TaskDetailModal from '@/components/Tasks/TaskDetailModal';
 import { useToast } from '@/components/UI';
-
-// Hooks
 import useTasks from '@/hooks/useTasks';
-
-// Theme
-import { 
-  palette, 
-  gradients, 
-  radius, 
-  space, 
-  font, 
-  shadowPresets,
-  motivationalQuotes,
-  priorities,
-  categories,
-} from '@/constants/Theme';
+import { palette, radius, space, font, shadowPresets, motivationalQuotes, gradients, priorities, categories } from '@/constants/Theme';
 
 const { width } = Dimensions.get('window');
 
@@ -191,7 +167,7 @@ const Dashboard = () => {
         }
       >
         {/* Header */}
-        <Animated.View entering={FadeInDown.duration(600)} style={styles.header}>
+        <Animated.View entering={FadeInUp.duration(600)} style={styles.header}>
           <View style={styles.headerTop}>
             <View>
               <Text style={styles.greeting}>{greeting} 👋</Text>

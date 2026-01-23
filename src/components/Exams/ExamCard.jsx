@@ -1,44 +1,13 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, typography, borderRadius, shadows } from '@/constants/Colors';
+import { colors, spacing, typography, borderRadius } from '@/constants/Colors';
 import CountdownBadge from './CountdownBadge';
 
 /**
  * 🎓 ExamCard Component
  * Beautiful exam cards with countdown and subject integration
  */
-const ExamCard = ({ exam, subject, onPress, variant = 'normal', index = 0 }) => {
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
-
-  useEffect(() => {
-    const delay = index * 100;
-    
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 8,
-        delay,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 300,
-        delay,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        delay,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [index]);
+const ExamCard = ({ exam, subject, onPress, variant = 'normal' }) => {
 
   /**
    * Check if exam is urgent (within 7 days)
@@ -76,28 +45,10 @@ const ExamCard = ({ exam, subject, onPress, variant = 'normal', index = 0 }) => 
   const topics = getTopicsPreview();
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        isLarge && styles.containerLarge,
-        {
-          transform: [
-            { scale: scaleAnim },
-            { translateY: slideAnim },
-          ],
-          opacity: opacityAnim,
-        },
-      ]}
-    >
-      <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.touchable}>
-        <LinearGradient
-          colors={[subjectColor + '12', subjectColor + '05']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.card, urgent && styles.cardUrgent]}
-        >
-          {/* Left accent bar */}
-          <View style={[styles.accentBar, { backgroundColor: subjectColor }]} />
+    <View style={[styles.container, isLarge && styles.containerLarge]}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.touchable}>
+        <View style={[styles.card, { borderLeftColor: subjectColor }, urgent && styles.cardUrgent]}>
+          {/* Left accent bar is now border */}
           
           {/* Urgent indicator */}
           {urgent && (
@@ -190,20 +141,20 @@ const ExamCard = ({ exam, subject, onPress, variant = 'normal', index = 0 }) => 
             {/* Quick actions for large variant */}
             {isLarge && (
               <View style={styles.actionsRow}>
-                <TouchableOpacity style={[styles.actionButton, { backgroundColor: subjectColor + '15' }]}>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: subjectColor + '10' }]}>
                   <Ionicons name="book-outline" size={16} color={subjectColor} />
                   <Text style={[styles.actionText, { color: subjectColor }]}>Study</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.backgroundSecondary }]}>
                   <Ionicons name="create-outline" size={16} color={colors.textSecondary} />
                   <Text style={styles.actionText}>Edit</Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -215,25 +166,20 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   touchable: {
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
   },
   card: {
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border,
+    borderLeftWidth: 4,
+    backgroundColor: '#FFFFFF',
     overflow: 'hidden',
-    ...shadows.card,
   },
   cardUrgent: {
-    borderColor: colors.error + '30',
-  },
-  accentBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
+    borderColor: colors.error + '40',
+    backgroundColor: colors.errorSoft,
   },
   urgentBadge: {
     position: 'absolute',
@@ -365,7 +311,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.surface,
   },
   actionText: {
     fontSize: typography.sm,

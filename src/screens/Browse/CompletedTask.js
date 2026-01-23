@@ -24,7 +24,7 @@ import { TaskDetailModal } from '@/components/Tasks';
 const CompletedTask = () => {
   const navigation = useNavigation();
   const { task_list, uncompleteTask, deleteTask, isLoading, loadTasksFromStorage } = useTasks();
-  const { subject_list } = useSubjects();
+  const { subjects } = useSubjects();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -46,9 +46,9 @@ const CompletedTask = () => {
   // Get subject for task
   const getSubjectForTask = useCallback(
     (subjectId) => {
-      return subject_list?.find((s) => s.id === subjectId);
+      return subjects?.find((s) => s.id === subjectId);
     },
-    [subject_list]
+    [subjects]
   );
 
   // Format date for display

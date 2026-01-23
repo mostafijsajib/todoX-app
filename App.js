@@ -1,4 +1,4 @@
-import { StyleSheet, View, SafeAreaView, ActivityIndicator, StatusBar as RNStatusBar, Platform} from 'react-native';
+import { StyleSheet, View, ActivityIndicator, StatusBar as RNStatusBar, Platform } from 'react-native';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState, useCallback } from 'react';
@@ -9,14 +9,13 @@ import { palette } from './src/constants/Theme';
 import MainNavigator from './src/navigation/MainNavigator';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SystemBars } from 'react-native-edge-to-edge';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { migrateToStudyPlanner } from './src/utils/migration';
 import { ToastProvider } from '@/components/UI';
 import { getDataLocalStorage } from '@/utils/storage';
 import { setGrades, setSemesters, setCurrentSemester } from '@/store/Grade/grade';
 import { setSettings } from '@/store/Settings/settings';
 
-// Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
 /**
@@ -83,42 +82,24 @@ const AppNavigator = () => {
   const [isReady, setIsReady] = useState(false);
   const dispatch = useDispatch();
 
-  // Run migration and load additional data on app startup
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // 1. Run migration
-        console.log('[App] Running data migration...');
-        const result = await migrateToStudyPlanner();
-        if (result.success) {
-          if (result.alreadyMigrated) {
-            console.log('[App] Data already migrated');
-          } else {
-            console.log('[App] Migration completed successfully:', result.stats);
-          }
-        } else {
-          console.error('[App] Migration failed:', result.error);
-        }
+        await migrateToStudyPlanner();
 
-        // 2. Load grades data
-        console.log('[App] Loading grades data...');
-        const [grades, semesters, currentSemester] = await Promise.all([
+        const [grades, semesters, currentSemester, settings] = await Promise.all([
           getDataLocalStorage('grades'),
           getDataLocalStorage('semesters'),
           getDataLocalStorage('current_semester'),
+          getDataLocalStorage('app_settings'),
         ]);
         
         if (grades) dispatch(setGrades(grades));
         if (semesters) dispatch(setSemesters(semesters));
         if (currentSemester) dispatch(setCurrentSemester(currentSemester));
-
-        // 3. Load app settings
-        console.log('[App] Loading settings...');
-        const settings = await getDataLocalStorage('app_settings');
         if (settings) dispatch(setSettings(settings));
-
       } catch (error) {
-        console.error('[App] Error during initialization:', error);
+        // Silent fail - app can still work without persisted data
       } finally {
         setIsReady(true);
       }

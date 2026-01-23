@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import { Calendar } from 'react-native-calendars';
 import { colors, spacing, typography, borderRadius, shadows } from '@/constants/Colors';
 import useTasks from '@/hooks/useTasks';
@@ -33,7 +34,7 @@ import AddTaskButton from '@/components/AddTaskButton';
  */
 export default function Timeline() {
   const { task_list, updateTask, completeTask, uncompleteTask, deleteTask, isLoading, loadTasksFromStorage } = useTasks();
-  const { subject_list } = useSubjects();
+  const { subjects } = useSubjects();
 
   // State
   const [selectedDate, setSelectedDate] = useState(getDate());
@@ -99,9 +100,9 @@ export default function Timeline() {
   // Get subject for task
   const getSubjectForTask = useCallback(
     (subjectId) => {
-      return subject_list?.find((s) => s.id === subjectId);
+      return subjects?.find((s) => s.id === subjectId);
     },
-    [subject_list]
+    [subjects]
   );
 
   // Handlers

@@ -32,7 +32,7 @@ import AddTaskButton from '@/components/AddTaskButton';
  */
 export default function Upcoming() {
   const { task_list, updateTask, completeTask, uncompleteTask, deleteTask, isLoading, loadTasksFromStorage } = useTasks();
-  const { subject_list } = useSubjects();
+  const { subjects } = useSubjects();
 
   // State
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -104,8 +104,8 @@ export default function Upcoming() {
       });
     } else if (sortBy === 'subject') {
       filtered = filtered.sort((a, b) => {
-        const subjectA = subject_list?.find((s) => s.id === a.subjectId)?.name || 'ZZZ';
-        const subjectB = subject_list?.find((s) => s.id === b.subjectId)?.name || 'ZZZ';
+        const subjectA = subjects?.find((s) => s.id === a.subjectId)?.name || 'ZZZ';
+        const subjectB = subjects?.find((s) => s.id === b.subjectId)?.name || 'ZZZ';
         return subjectA.localeCompare(subjectB);
       });
     }
@@ -142,7 +142,7 @@ export default function Upcoming() {
         date,
         data: grouped[date],
       }));
-  }, [task_list, filterBy, sortBy, showCompleted, subject_list, today]);
+  }, [task_list, filterBy, sortBy, showCompleted, subjects, today]);
 
   // Format section date
   const formatSectionDate = (dateStr) => {
@@ -167,9 +167,9 @@ export default function Upcoming() {
   // Get subject for task
   const getSubjectForTask = useCallback(
     (subjectId) => {
-      return subject_list?.find((s) => s.id === subjectId);
+      return subjects?.find((s) => s.id === subjectId);
     },
-    [subject_list]
+    [subjects]
   );
 
   // Statistics

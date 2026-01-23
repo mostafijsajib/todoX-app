@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import { palette, gradients, shadowPresets, radius, space, font, categories, priorities } from '../../constants/Theme';
+import { palette, shadowPresets, radius, space, font, categories, priorities } from '../../constants/Theme';
 import { useSelector } from 'react-redux';
 import useTasks from '../../hooks/useTasks';
 import { generateId } from '../../utils/gnFunc';

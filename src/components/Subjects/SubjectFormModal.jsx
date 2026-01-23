@@ -154,6 +154,8 @@ const SubjectFormModal = ({
             <ScrollView
               style={styles.scrollView}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.scrollContent}
             >
               {/* Subject Name */}
               <View style={styles.section}>
@@ -184,7 +186,7 @@ const SubjectFormModal = ({
                       onPress={() => setSelectedColor(color.value)}
                     >
                       {selectedColor === color.value && (
-                        <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                        <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                       )}
                     </TouchableOpacity>
                   ))}
@@ -209,7 +211,7 @@ const SubjectFormModal = ({
                     >
                       <Ionicons
                         name={icon.value}
-                        size={24}
+                        size={20}
                         color={selectedIcon === icon.value ? selectedColor : colors.textSecondary}
                       />
                     </TouchableOpacity>
@@ -229,7 +231,7 @@ const SubjectFormModal = ({
                   >
                     <Ionicons
                       name={selectedIcon}
-                      size={32}
+                      size={24}
                       color={selectedColor}
                     />
                   </View>
@@ -278,21 +280,21 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
-    maxWidth: 500,
-    maxHeight: '85%',
+    maxWidth: 400,
+    maxHeight: '70%',
   },
   card: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.sm,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
   },
   headerTitle: {
     fontSize: typography.xl,
@@ -303,10 +305,13 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   scrollView: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  scrollContent: {
+    paddingBottom: spacing.sm,
   },
   section: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   label: {
     fontSize: typography.md,
@@ -327,15 +332,15 @@ const styles = StyleSheet.create({
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs + 2,
+    gap: spacing.xs,
   },
   colorOption: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: 'transparent',
   },
   colorOptionSelected: {
@@ -344,12 +349,12 @@ const styles = StyleSheet.create({
   iconGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs + 2,
+    gap: spacing.xs,
   },
   iconOption: {
-    width: 50,
-    height: 50,
-    borderRadius: borderRadius.md,
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.surface,
@@ -360,16 +365,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
   },
   previewIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   previewText: {
     fontSize: typography.lg,
@@ -379,8 +384,8 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   button: {
     flex: 1,
